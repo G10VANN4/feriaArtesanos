@@ -34,7 +34,7 @@ CREATE TABLE Rubro (
 CREATE TABLE Usuario (
     usuario_id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    contraseña VARCHAR(255) NOT NULL,
+    contrasena VARCHAR(512) NOT NULL,
     estado_id INT NOT NULL,
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (estado_id) REFERENCES EstadoUsuario(estado_id)
