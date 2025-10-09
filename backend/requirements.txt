@@ -1,0 +1,8 @@
+flask
+flask-cors
+flask_sqlalchemy
+flask-migrate
+flask-jwt-extended
+mysql-connector-python
+python-dotenv
+passlib
