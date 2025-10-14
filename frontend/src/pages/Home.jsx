@@ -1,6 +1,6 @@
 // src/pages/Home.jsx
 
-import React, { useState } from 'react';
+//import React, { useState } from 'react'; no se usa todavia
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Carousel from '../components/Carousel';
@@ -8,7 +8,7 @@ import "../styles/App.css";
 
 
 function Home() { 
-  const [count, setCount] = useState(0); 
+  //const [count, setCount] = useState(0); //no se usa todavia
 
   return (
     <>
@@ -35,8 +35,8 @@ function Home() {
 
         <section className="registration-cta-section">
           <div className="registration-card">
-            <h3>¿Quieres Participar en la Próxima Feria?</h3>
-            <p>Únete a nuestra comunidad de artesanos. Crea tu perfil para participar de la feria y gestionar tu inscripción.</p>
+            <h3>¿Quieres Participar en la Próxima fiesta?</h3>
+            <p>Únite a nuestra comunidad de artesanos. Crea tu perfil para participar de la feria y gestionar tu inscripción.</p>
             
             <a href="/registro" className="btn-register">Regístrate Ahora</a> 
           </div>

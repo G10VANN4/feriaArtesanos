@@ -1,18 +1,42 @@
-// src/components/Navbar.jsx
-
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const Navbar = () => {
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
     <header className="navbar">
       <div className="navbar-logo">
-        <a href="/">Gestión Artesanal</a>
+        <Link to="/">Fiesta Nacional del Mondongo y la Torta Frita</Link>
       </div>
       <nav className="navbar-links">
-        {/* Enlaces de navegación según el Figma */}
-        <a href="#inicio">Inicio</a>
+        <Link to="/">Inicio</Link>
         <a href="#contacto">Contacto</a>
-        <button className="btn-login">Iniciar sesión</button> 
+        
+        {isAuthenticated ? (
+          <>
+            <span style={{ color: '#5C4033', fontWeight: '600' }}>
+              Hola, {user?.nombre || user?.email}
+            </span>
+            <button className="btn-login" onClick={handleLogout}>
+              Cerrar Sesión
+            </button>
+          </>
+        ) : (
+          <button 
+            className="btn-login" 
+            onClick={() => navigate('/login')}
+          >
+            Iniciar sesión
+          </button>
+        )}
       </nav>
     </header>
   );

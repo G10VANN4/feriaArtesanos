@@ -270,3 +270,193 @@ h1, h2, h3 { color: #5C4033; /* Color de títulos marrón más fuerte */ }
     background-color: #A0522D; /* Usa tu color primario (marrón) */
     border: 1px solid white;
 }
+
+
+/* --- ESTILOS PARA LOGIN Y REGISTRO --- */
+
+/* Contenedores principales - CENTRADO ABSOLUTO */
+.login-container,
+.registro-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: #F8F4E3;
+  z-index: 1000;
+}
+
+/* Tarjetas de formulario */
+.login-card,
+.registro-card {
+  background-color: #FAF0E6;
+  border: 1px solid #E0DBCF;
+  border-radius: 8px;
+  padding: 2.5rem 3rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border-top: 5px solid #A0522D;
+  /* Centrado perfecto */
+  margin: 0;
+}
+
+.registro-card {
+  max-width: 600px;
+}
+
+/* Títulos */
+.login-title,
+.registro-title {
+  color: #5C4033;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  margin-top: 0;
+}
+
+.login-icon,
+.registro-icon {
+  color: #A0522D;
+  margin-right: 0.5rem;
+}
+
+/* Mensajes de error */
+.error-message {
+  background-color: rgba(160, 82, 45, 0.1);
+  border: 1px solid rgba(160, 82, 45, 0.3);
+  color: #8B4513;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Formularios */
+.login-form,
+.registro-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  color: #5C4033;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.form-input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #E0DBCF;
+  border-radius: 4px;
+  background-color: white;
+  color: #38312B;
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #A0522D;
+  box-shadow: 0 0 0 2px rgba(160, 82, 45, 0.2);
+}
+
+.form-input:disabled {
+  background-color: #f8f8f8;
+  opacity: 0.7;
+}
+
+/* Botones */
+.login-button,
+.registro-button {
+  background-color: #A0522D;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.login-button:hover,
+.registro-button:hover {
+  background-color: #8B4513;
+}
+
+.login-button:disabled,
+.registro-button:disabled {
+  background-color: #C4A484;
+  cursor: not-allowed;
+}
+
+/* Enlaces */
+.login-link,
+.registro-link {
+  text-align: center;
+  margin-top: 2rem;
+  color: #5C4033;
+  font-size: 0.95rem;
+}
+
+.link-register,
+.link-login {
+  color: #A0522D;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-register:hover,
+.link-login:hover {
+  color: #8B4513;
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .login-container,
+  .registro-container {
+    padding: 1rem;
+  }
+  
+  .login-card,
+  .registro-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .login-title,
+  .registro-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-card,
+  .registro-card {
+    padding: 1.5rem 1rem;
+  }
+}
