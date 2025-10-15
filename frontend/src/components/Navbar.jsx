@@ -14,7 +14,10 @@ const Navbar = () => {
   return (
     <header className="navbar">
       <div className="navbar-logo">
-        <Link to="/">Fiesta Nacional del Mondongo y la Torta Frita</Link>
+        <Link to="/" className="logo-link">
+          <img src="/images/logo.png" alt="Logo Fiesta del Mondongo" className="logo-image" />
+          <span className="logo-text">Fiesta Nacional del Mondongo y la Torta Frita</span>
+        </Link>
       </div>
       <nav className="navbar-links">
         <Link to="/">Inicio</Link>
@@ -22,7 +25,7 @@ const Navbar = () => {
         
         {isAuthenticated ? (
           <>
-            <span style={{ color: '#5C4033', fontWeight: '600' }}>
+            <span className="user-greeting">
               Hola, {user?.nombre || user?.email}
             </span>
             <button className="btn-login" onClick={handleLogout}>
