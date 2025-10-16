@@ -9,7 +9,7 @@ from routes.parcela_routes import auth_bp
 
 def create_app():
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://admin:admin@localhost:3306/sistema_ferias"
+    app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://admin:admin@localhost:3306/sistema_feria"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
@@ -20,7 +20,7 @@ def create_app():
     # Registrar blueprint
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
-    return app  # <-- Esto termina la función
+    return app
 
 
 # -----------------------------
