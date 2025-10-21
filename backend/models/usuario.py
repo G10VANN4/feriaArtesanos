@@ -6,13 +6,13 @@ from models.estado_usuario import EstadoUsuario
 
 
 class Usuario(db.Model):
-    __tablename__ = 'usuario'
+    __tablename__ = 'Usuario'
     usuario_id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     contraseña = db.Column(db.String(255), nullable=False)
     rol_id = db.Column(db.Integer, db.ForeignKey('Rol.rol_id'), nullable=False)
-    estado_id = db.Column(db.Boolean, default=True)
+    estado_id = db.Column(db.Integer, db.ForeignKey('EstadoUsuario.estado_id'), nullable=False) 
     fecha_registro = db.Column(db.DateTime, default=db.func.current_timestamp())
     
     # Relaciones 1:1
@@ -38,6 +38,6 @@ class Usuario(db.Model):
             'nombre': self.nombre,
             'email': self.email, 
             'rol_id': self.rol_id,
-            'estado_id': self.activo,
+            'estado_id': self.estado_id,
             'fecha_registro': self.fecha_registro.isoformat() if self.fecha_registro else None
         }

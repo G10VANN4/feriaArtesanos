@@ -12,6 +12,12 @@ class ReasignacionPuesto(db.Model):
     fecha_reasignacion = db.Column(db.DateTime, default=datetime.utcnow)
     notificado_artesano = db.Column(db.Boolean, default=False)
     
+ 
+    cuadrados_anteriores = db.Column(db.Text)  
+    cuadrados_nuevos = db.Column(db.Text)    
+    coordenadas_anteriores = db.Column(db.String(100)) 
+    coordenadas_nuevas = db.Column(db.String(100))      
+    
     def to_dict(self):
         return {
             'reasignacion_id': self.reasignacion_id,
@@ -21,5 +27,9 @@ class ReasignacionPuesto(db.Model):
             'administrador_id': self.administrador_id,
             'motivo': self.motivo,
             'fecha_reasignacion': self.fecha_reasignacion.isoformat() if self.fecha_reasignacion else None,
-            'notificado_artesano': self.notificado_artesano
+            'notificado_artesano': self.notificado_artesano,
+            'cuadrados_anteriores': self.cuadrados_anteriores,
+            'cuadrados_nuevos': self.cuadrados_nuevos,
+            'coordenadas_anteriores': self.coordenadas_anteriores,
+            'coordenadas_nuevas': self.coordenadas_nuevas
         }

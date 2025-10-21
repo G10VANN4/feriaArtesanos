@@ -1,0 +1,17 @@
+from .base import db
+
+class EstadoNotificacion(db.Model):
+    __tablename__ = 'EstadoNotificacion'
+    estado_notificacion_id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), unique=True, nullable=False)
+    es_activo = db.Column(db.Boolean, default=True)
+    
+    # Relaciones
+    notificaciones = db.relationship('Notificacion', backref='estado_notificacion', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'estado_notificacion_id': self.estado_notificacion_id,
+            'nombre': self.nombre,
+            'es_activo': self.es_activo
+        }
