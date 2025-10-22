@@ -1,22 +1,22 @@
+
 from .base import db
-from datetime import datetime
 
 class ReasignacionPuesto(db.Model):
     __tablename__ = 'ReasignacionPuesto'
+    
     reasignacion_id = db.Column(db.Integer, primary_key=True)
     solicitud_id = db.Column(db.Integer, db.ForeignKey('Solicitud.solicitud_id'), nullable=False)
     parcela_anterior_id = db.Column(db.Integer, db.ForeignKey('Parcela.parcela_id'))
     parcela_nueva_id = db.Column(db.Integer, db.ForeignKey('Parcela.parcela_id'), nullable=False)
     administrador_id = db.Column(db.Integer, db.ForeignKey('Administrador.administrador_id'), nullable=False)
     motivo = db.Column(db.Text, nullable=False)
-    fecha_reasignacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_reasignacion = db.Column(db.DateTime, default=db.func.current_timestamp())
     notificado_artesano = db.Column(db.Boolean, default=False)
-    
- 
-    cuadrados_anteriores = db.Column(db.Text)  
-    cuadrados_nuevos = db.Column(db.Text)    
-    coordenadas_anteriores = db.Column(db.String(100)) 
-    coordenadas_nuevas = db.Column(db.String(100))      
+    cuadrados_anteriores = db.Column(db.Text)
+    cuadrados_nuevos = db.Column(db.Text)
+    coordenadas_anteriores = db.Column(db.String(100))
+    coordenadas_nuevas = db.Column(db.String(100))
+
     
     def to_dict(self):
         return {
@@ -33,3 +33,6 @@ class ReasignacionPuesto(db.Model):
             'coordenadas_anteriores': self.coordenadas_anteriores,
             'coordenadas_nuevas': self.coordenadas_nuevas
         }
+    
+    def __repr__(self):
+        return f'<ReasignacionPuesto {self.reasignacion_id}>'

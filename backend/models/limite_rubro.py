@@ -1,8 +1,9 @@
+# models/limite_rubro.py
 from .base import db
-from datetime import datetime
 
 class LimiteRubro(db.Model):
     __tablename__ = 'LimiteRubro'
+    
     limite_id = db.Column(db.Integer, primary_key=True)
     rubro_id = db.Column(db.Integer, db.ForeignKey('Rubro.rubro_id'), nullable=False)
     max_puestos = db.Column(db.Integer, nullable=False)
@@ -14,6 +15,10 @@ class LimiteRubro(db.Model):
             'limite_id': self.limite_id,
             'rubro_id': self.rubro_id,
             'max_puestos': self.max_puestos,
-            'fecha_vigencia': self.fecha_vigencia.isoformat() if self.fecha_vigencia else None,
-            'es_activo': self.es_activo
+            'fecha_vigencia': self.fecha_vigencia.isoformat(),
+            'es_activo': self.es_activo,
+            'rubro': self.rubro.to_dict() if self.rubro else None
         }
+    
+    def __repr__(self):
+        return f'<LimiteRubro {self.rubro_id} - {self.max_puestos}>'
