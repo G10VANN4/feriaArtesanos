@@ -2,10 +2,13 @@
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
+import os
+from flask_jwt_extended import JWTManager
 from config import Config
 from models.base import db
 from routes.system_routes import system_bp
 from routes.auth_routes import auth_bp
+
 
 # Cargar variables de entorno
 load_dotenv()
@@ -13,6 +16,10 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 app.config.from_object(Config)
+
+# Inicializar JWT usando la clave de tu .env
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
+jwt = JWTManager(app)
 
 # Inicializar base de datos
 db.init_app(app)

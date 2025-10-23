@@ -5,7 +5,7 @@ import { FaSignInAlt } from "react-icons/fa";
 import "../styles/App.css";
 
 const Login = () => {
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user,logout } = useAuth();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,15 +59,16 @@ const Login = () => {
             >
               Volver al Inicio
             </button>
+            
             <button 
               onClick={() => {
-//LOGOUT
+                logout();
                 navigate("/");
               }} 
               className="registro-button"
               style={{ backgroundColor: 'transparent', color: '#A0522D', border: '2px solid #A0522D' }}
             >
-              Continuar Navegando
+              Cerrar sesión
             </button>
           </div>
         </div>

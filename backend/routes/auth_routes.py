@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db import db
+from models.base import db
 from models.usuario import Usuario
 from models.artesano import Artesano
 from models.rol import Rol
@@ -17,20 +17,23 @@ ESTADO_USUARIO_ACTIVO_ID = 1
 def register():
     data = request.get_json()
     
-    if not data.get('email') or not data.get('password') or not data.get('nombre'): 
-        return jsonify({'msg': 'Email, contraseña y nombre son obligatorios'}), 400
+    if not data.get('email') or not data.get('password'):
+        return jsonify({'msg': 'Email y contraseña son obligatorios'}), 400
 
     if Usuario.query.filter_by(email=data['email']).first():
         return jsonify({'msg': 'El email ya existe'}), 409
     
     try:
+        nombre = data.get('nombre') or data['email'].split('@')[0]  # Valor por defecto
+
         new_user = Usuario(
-            nombre=data['nombre'], 
+            nombre=nombre,
             email=data['email'],
             rol_id=ROL_ARTESANO_ID,
-            estado_id=ESTADO_USUARIO_ACTIVO_ID 
+            estado_id=ESTADO_USUARIO_ACTIVO_ID
         )
         
+        # Guarda correctamente en columna `contraseña`
         new_user.set_password(data['password'])
 
         db.session.add(new_user)
@@ -39,7 +42,7 @@ def register():
         return jsonify({
             'msg': 'Registro inicial exitoso. Debe completar su perfil.',
             'usuario_id': new_user.usuario_id,
-            'next_step': '/perfil/completar' 
+            'next_step': '/perfil/completar'
         }), 201
 
     except Exception as e:
@@ -53,9 +56,9 @@ def login():
     data = request.get_json()
     if not data or not data.get('email') or not data.get('password'): 
         return jsonify({'msg': 'Faltan email o contraseña'}), 400
+
     user = Usuario.query.filter_by(email=data['email']).first()
     
-   
     if not user or not user.check_password(data['password']):
         return jsonify({'msg': 'Credenciales inválidas'}), 401
     
