@@ -1,75 +1,34 @@
 from flask import Blueprint, request, jsonify
-from models.base import db
-from models.usuario import Usuario
-from models.artesano import Artesano
-from models.rol import Rol
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from passlib.hash import sha256_crypt
-from models.estado_usuario import EstadoUsuario
+from controllers.auth_controller import AuthController
 
 auth_bp = Blueprint('auth_bp', __name__)
 
-ROL_ARTESANO_ID = 1      
-ESTADO_USUARIO_ACTIVO_ID = 1
-
-
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    
-    if not data.get('email') or not data.get('password'):
-        return jsonify({'msg': 'Email y contraseña son obligatorios'}), 400
-
-    if Usuario.query.filter_by(email=data['email']).first():
-        return jsonify({'msg': 'El email ya existe'}), 409
-    
     try:
-        nombre = data.get('nombre') or data['email'].split('@')[0]  # Valor por defecto
-
-        new_user = Usuario(
-            nombre=nombre,
-            email=data['email'],
-            rol_id=ROL_ARTESANO_ID,
-            estado_id=ESTADO_USUARIO_ACTIVO_ID
-        )
+        data = request.get_json()
         
-        # Guarda correctamente en columna `contraseña`
-        new_user.set_password(data['password'])
-
-        db.session.add(new_user)
-        db.session.commit()
+        if not data:
+            return jsonify({'msg': 'Datos JSON requeridos'}), 400
+            
+        result, status_code = AuthController.register_user(data)
+        return jsonify(result), status_code
         
-        return jsonify({
-            'msg': 'Registro inicial exitoso. Debe completar su perfil.',
-            'usuario_id': new_user.usuario_id,
-            'next_step': '/perfil/completar'
-        }), 201
-
     except Exception as e:
-        db.session.rollback()
-        print(f"Error en COMMIT: {str(e)}")
-        return jsonify({'msg': 'Error interno del servidor durante el registro.'}), 500
-
+        print(f"Error en endpoint register: {str(e)}")
+        return jsonify({'msg': 'Error interno del servidor'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    if not data or not data.get('email') or not data.get('password'): 
-        return jsonify({'msg': 'Faltan email o contraseña'}), 400
-
-    user = Usuario.query.filter_by(email=data['email']).first()
-    
-    if not user or not user.check_password(data['password']):
-        return jsonify({'msg': 'Credenciales inválidas'}), 401
-    
-    token = create_access_token(identity={
-        'id': user.usuario_id, 
-        'email': user.email,
-        'rol_id': user.rol_id 
-    })
-    
-    return jsonify({
-        'access_token': token, 
-        'rol_id': user.rol_id,
-        'msg': 'Inicio de sesión exitoso'
-    }), 200
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'msg': 'Datos JSON requeridos'}), 400
+            
+        result, status_code = AuthController.login_user(data)
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        print(f"Error en endpoint login: {str(e)}")
+        return jsonify({'msg': 'Error interno del servidor'}), 500

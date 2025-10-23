@@ -6,7 +6,7 @@ class Usuario(db.Model):
     __tablename__ = 'Usuario'
     
     usuario_id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False)
+    #nombre = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), nullable=False, unique=True)
     contraseña = db.Column(db.String(255), nullable=False)
     estado_id = db.Column(db.Integer, db.ForeignKey('EstadoUsuario.estado_id'), nullable=False)
@@ -23,7 +23,7 @@ class Usuario(db.Model):
     def to_dict(self):
         return {
             'usuario_id': self.usuario_id,
-            'nombre': self.nombre,
+           # 'nombre': self.nombre,
             'email': self.email,
             'estado_id': self.estado_id,
             'rol_id': self.rol_id,

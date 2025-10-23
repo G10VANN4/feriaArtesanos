@@ -2,6 +2,13 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
+// Fuera del componente, define los roles
+const ROLES = {
+  1: 'Artesano!',
+  2: 'Administrador', 
+  3: 'Organizador'
+};
+
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -26,7 +33,7 @@ const Navbar = () => {
         {isAuthenticated ? (
           <>
             <span className="user-greeting">
-              Hola, {user?.nombre || user?.email}
+              Hola, {ROLES[user?.rol_id] || 'Usuario'}
             </span>
             <button className="btn-login" onClick={handleLogout}>
               Cerrar Sesión

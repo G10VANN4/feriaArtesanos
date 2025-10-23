@@ -8,7 +8,7 @@ from config import Config
 from models.base import db
 from routes.system_routes import system_bp
 from routes.auth_routes import auth_bp
-
+from routes.admin_routes import admin_bp
 
 # Cargar variables de entorno
 load_dotenv()
@@ -27,6 +27,7 @@ db.init_app(app)
 # Registrar Blueprints
 app.register_blueprint(system_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(admin_bp) 
 
 if __name__ == '__main__':
     print("=" * 70)

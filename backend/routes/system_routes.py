@@ -1,4 +1,4 @@
-# routes/system_routes.py
+# routes/system_routes.py (sin el organizador)
 from flask import Blueprint, jsonify
 from models.base import db
 
@@ -67,19 +67,25 @@ def init_db():
         print("✅ Tablas creadas exitosamente en MySQL")
         datos_insertados = False
 
-        # Datos iniciales: roles, estados y rubros base
+        # PRIMERO insertar datos básicos en ORDEN CORRECTO
+        
+        # 1. Roles (no depende de nadie)
         if Rol.query.count() == 0:
             roles = [Rol(tipo=t, es_activo=True) for t in ['Artesano', 'Administrador', 'Organizador']]
             db.session.add_all(roles)
+            db.session.flush()
             print("✅ Roles insertados")
             datos_insertados = True
 
+        # 2. Estados de usuario (no depende de nadie)
         if EstadoUsuario.query.count() == 0:
             estados = [EstadoUsuario(tipo=t, es_activo=True) for t in ['Activo', 'Inactivo']]
             db.session.add_all(estados)
+            db.session.flush()
             print("✅ Estados de usuario insertados")
             datos_insertados = True
 
+        # 3. Colores (necesarios para Rubro)
         if Color.query.count() == 0:
             colores = [
                 Color(nombre='Rojo', codigo_hex='#FF0000'),
@@ -87,14 +93,21 @@ def init_db():
                 Color(nombre='Azul', codigo_hex='#0000FF')
             ]
             db.session.add_all(colores)
+            db.session.flush()
             print("✅ Colores insertados")
             datos_insertados = True
 
+        # 4. AHORA SÍ insertar Rubros (depende de Color)
         if Rubro.query.count() == 0:
+            # Obtener los colores recién insertados
+            color_rojo = Color.query.filter_by(nombre='Rojo').first()
+            color_verde = Color.query.filter_by(nombre='Verde').first()
+            color_azul = Color.query.filter_by(nombre='Azul').first()
+            
             rubros = [
-                Rubro(tipo='Gastronomía', precio_parcela=100000, color_id=1),
-                Rubro(tipo='Reventa', precio_parcela=25000, color_id=2),
-                Rubro(tipo='Artesanías', precio_parcela=15000, color_id=3)
+                Rubro(tipo='Gastronomía', precio_parcela=100000, color_id=color_rojo.color_id),
+                Rubro(tipo='Reventa', precio_parcela=25000, color_id=color_verde.color_id),
+                Rubro(tipo='Artesanías', precio_parcela=15000, color_id=color_azul.color_id)
             ]
             db.session.add_all(rubros)
             print("✅ Rubros insertados")
@@ -110,12 +123,14 @@ def init_db():
                 'roles': Rol.query.count(),
                 'estados_usuario': EstadoUsuario.query.count(),
                 'colores': Color.query.count(),
-                'rubros': Rubro.query.count()
+                'rubros': Rubro.query.count(),
+                'usuarios': Usuario.query.count()
             }
         })
 
     except Exception as e:
         db.session.rollback()
+        print(f"❌ Error en init-db: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -135,6 +150,7 @@ def status():
             'solicitudes': Solicitud.query.count(),
             'notificaciones': Notificacion.query.count(),
         }
+        
         return jsonify({
             'success': True,
             'database': 'MySQL',
