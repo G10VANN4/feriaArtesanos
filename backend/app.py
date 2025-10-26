@@ -9,6 +9,9 @@ from models.base import db
 from routes.system_routes import system_bp
 from routes.auth_routes import auth_bp
 from routes.admin_routes import admin_bp
+from routes.artesano_routes import artesano_bp
+from routes.solicitud_routes import solicitud_bp
+from routes.config_routes import config_bp
 
 # Cargar variables de entorno
 load_dotenv()
@@ -28,6 +31,9 @@ db.init_app(app)
 app.register_blueprint(system_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(admin_bp) 
+app.register_blueprint(artesano_bp)
+app.register_blueprint(solicitud_bp)
+app.register_blueprint(config_bp)
 
 if __name__ == '__main__':
     print("=" * 70)

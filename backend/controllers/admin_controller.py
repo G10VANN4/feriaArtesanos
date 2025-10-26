@@ -1,5 +1,6 @@
 from models.base import db
-from models.solicitud import Solicitud          
+from models.solicitud import Solicitud 
+from models.usuario import Usuario       #faltaba improtar
 from models.artesano import Artesano            
 from models.rubro import Rubro                  
 from models.estado_solicitud import EstadoSolicitud 

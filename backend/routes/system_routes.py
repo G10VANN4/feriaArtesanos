@@ -97,7 +97,46 @@ def init_db():
             print("✅ Colores insertados")
             datos_insertados = True
 
-        # 4. AHORA SÍ insertar Rubros (depende de Color)
+        # 4. Estados de Solicitud (CRÍTICO - para RF5)
+        if EstadoSolicitud.query.count() == 0:
+            estados_solicitud = [
+                EstadoSolicitud(nombre='Pendiente', es_activo=True),
+                EstadoSolicitud(nombre='Aprobada', es_activo=True),
+                EstadoSolicitud(nombre='Rechazada', es_activo=True),
+                EstadoSolicitud(nombre='Cancelada', es_activo=True),
+                EstadoSolicitud(nombre='Pendiente por modificación', es_activo=True)
+            ]
+            db.session.add_all(estados_solicitud)
+            db.session.flush()
+            print("✅ Estados de solicitud insertados")
+            datos_insertados = True
+
+        # 5. Estados de Pago (para RF24)
+        if EstadoPago.query.count() == 0:
+            estados_pago = [
+                EstadoPago(tipo='Pendiente', es_activo=True),
+                EstadoPago(tipo='Pagado', es_activo=True),
+                EstadoPago(tipo='Rechazado', es_activo=True),
+                EstadoPago(tipo='Cancelado', es_activo=True)
+            ]
+            db.session.add_all(estados_pago)
+            db.session.flush()
+            print("✅ Estados de pago insertados")
+            datos_insertados = True
+
+        # 6. Estados de Notificación
+        if EstadoNotificacion.query.count() == 0:
+            estados_notificacion = [
+                EstadoNotificacion(nombre='Enviada', es_activo=True),
+                EstadoNotificacion(nombre='Leída', es_activo=True),
+                EstadoNotificacion(nombre='Fallida', es_activo=True)
+            ]
+            db.session.add_all(estados_notificacion)
+            db.session.flush()
+            print("✅ Estados de notificación insertados")
+            datos_insertados = True
+
+        # 7. AHORA SÍ insertar Rubros (depende de Color)
         if Rubro.query.count() == 0:
             # Obtener los colores recién insertados
             color_rojo = Color.query.filter_by(nombre='Rojo').first()
@@ -113,6 +152,17 @@ def init_db():
             print("✅ Rubros insertados")
             datos_insertados = True
 
+        # 8. Configuración inicial del grid (para RF16)
+        if ConfiguracionGrid.query.count() == 0:
+            config_grid = ConfiguracionGrid(
+                ancho_total=100,
+                largo_total=100,
+                medida_cuadrado=3.00
+            )
+            db.session.add(config_grid)
+            print("✅ Configuración grid insertada")
+            datos_insertados = True
+
         db.session.commit()
 
         return jsonify({
@@ -122,8 +172,12 @@ def init_db():
             'estadisticas': {
                 'roles': Rol.query.count(),
                 'estados_usuario': EstadoUsuario.query.count(),
+                'estados_solicitud': EstadoSolicitud.query.count(),
+                'estados_pago': EstadoPago.query.count(),
+                'estados_notificacion': EstadoNotificacion.query.count(),
                 'colores': Color.query.count(),
                 'rubros': Rubro.query.count(),
+                'config_grid': ConfiguracionGrid.query.count(),
                 'usuarios': Usuario.query.count()
             }
         })
