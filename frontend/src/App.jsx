@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth.jsx'; // ← Importar desde hooks
@@ -23,4 +24,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; 
