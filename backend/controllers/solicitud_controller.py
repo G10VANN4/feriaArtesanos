@@ -1,14 +1,15 @@
-# routes/solicitud_routes.py
+# controllers/solicitud_controller.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from models.base import db
 from models.solicitud import Solicitud
 from models.artesano import Artesano
 from models.rubro import Rubro
 from models.estado_solicitud import EstadoSolicitud
 from models.solicitud_foto import SolicitudFoto 
-from models.base import db
 from datetime import datetime
 
+# Crear blueprint directamente
 solicitud_bp = Blueprint('solicitud_bp', __name__, url_prefix='/solicitudes')
 
 @solicitud_bp.route('', methods=['POST'])
@@ -104,10 +105,23 @@ def obtener_solicitudes_artesano():
     if not artesano:
         return jsonify({'msg': 'Perfil no encontrado'}), 404
     
+    # Obtener todas las solicitudes del artesano
     solicitudes = Solicitud.query.filter_by(artesano_id=artesano.artesano_id).all()
     
+    # Formatear respuesta incluyendo las fotos de cada solicitud
+    solicitudes_con_fotos = []
+    for solicitud in solicitudes:
+        # Obtener las fotos de esta solicitud
+        fotos = SolicitudFoto.query.filter_by(solicitud_id=solicitud.solicitud_id).all()
+        
+        # Crear el objeto de solicitud con fotos incluidas
+        solicitud_data = solicitud.to_dict()
+        solicitud_data['fotos'] = [foto.to_dict() for foto in fotos]
+        
+        solicitudes_con_fotos.append(solicitud_data)
+    
     return jsonify({
-        'solicitudes': [s.to_dict() for s in solicitudes]
+        'solicitudes': solicitudes_con_fotos
     }), 200
 
 @solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['POST'])

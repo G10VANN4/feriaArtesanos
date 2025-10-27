@@ -1,8 +1,6 @@
-# routes/system_routes.py (sin el organizador)
+# controllers/system_controller.py - COMPLETO
 from flask import Blueprint, jsonify
 from models.base import db
-
-# Importar TODAS las clases de modelos
 from models.administrador import Administrador
 from models.artesano import Artesano
 from models.color import Color
@@ -26,6 +24,7 @@ from models.solicitud_foto import SolicitudFoto
 from models.solicitud_parcela import SolicitudParcela
 from models.usuario import Usuario
 
+# Crear blueprint directamente en el controller
 system_bp = Blueprint('system_bp', __name__)
 
 @system_bp.route('/')
@@ -50,14 +49,13 @@ def test_connection():
             'success': True,
             'message': '✅ Conexión a MySQL exitosa',
             'database': 'sistema_ferias'
-        })
+        }), 200
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e),
             'message': '❌ Error de conexión. Revisa la configuración.'
         }), 500
-
 
 @system_bp.route('/api/init-db')
 def init_db():
@@ -180,13 +178,12 @@ def init_db():
                 'config_grid': ConfiguracionGrid.query.count(),
                 'usuarios': Usuario.query.count()
             }
-        })
+        }), 200
 
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error en init-db: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @system_bp.route('/api/status')
 def status():
@@ -210,6 +207,6 @@ def status():
             'database': 'MySQL',
             'estado': 'Conectado',
             'estadisticas': total_tablas
-        })
+        }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

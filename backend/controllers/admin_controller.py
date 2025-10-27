@@ -7,6 +7,8 @@ from models.estado_solicitud import EstadoSolicitud
 from sqlalchemy import or_
 from datetime import datetime
 
+
+
 # Asumo que tienes una forma de obtener el usuario actual (current_user)
 # y que este contiene: {'rol_id': X, 'administrador_id': Y}
 

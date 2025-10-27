@@ -1,10 +1,8 @@
-# routes/config_routes.py
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+# controllers/config_controller.py
+from flask import Blueprint, jsonify
 from models.rubro import Rubro
-from models.configuracion_grid import ConfiguracionGrid
-from models.base import db
 
+# Crear blueprint directamente
 config_bp = Blueprint('config_bp', __name__, url_prefix='/config')
 
 @config_bp.route('/rubros', methods=['GET'])

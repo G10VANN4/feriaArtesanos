@@ -1,10 +1,10 @@
-# routes/artesano_routes.py
+# controllers/artesano_controller.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models.artesano import Artesano
-from models.usuario import Usuario
 from models.base import db
+from models.artesano import Artesano
 
+# Crear blueprint directamente
 artesano_bp = Blueprint('artesano_bp', __name__, url_prefix='/artesano')
 
 @artesano_bp.route('/perfil', methods=['POST'])
