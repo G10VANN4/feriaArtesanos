@@ -1,5 +1,6 @@
-# controllers/system_controller.py - COMPLETO
+# controllers/system_controller.py - ACTUALIZADO
 from flask import Blueprint, jsonify
+from werkzeug.security import generate_password_hash
 from models.base import db
 from models.administrador import Administrador
 from models.artesano import Artesano
@@ -65,9 +66,9 @@ def init_db():
         print("✅ Tablas creadas exitosamente en MySQL")
         datos_insertados = False
 
-        # PRIMERO insertar datos básicos en ORDEN CORRECTO
+        # PRIMERO insertar datos básicos
         
-        # 1. Roles (no depende de nadie)
+        # 1. Roles 
         if Rol.query.count() == 0:
             roles = [Rol(tipo=t, es_activo=True) for t in ['Artesano', 'Administrador', 'Organizador']]
             db.session.add_all(roles)
@@ -75,7 +76,7 @@ def init_db():
             print("✅ Roles insertados")
             datos_insertados = True
 
-        # 2. Estados de usuario (no depende de nadie)
+        # 2. Estados de usuario 
         if EstadoUsuario.query.count() == 0:
             estados = [EstadoUsuario(tipo=t, es_activo=True) for t in ['Activo', 'Inactivo']]
             db.session.add_all(estados)
@@ -95,7 +96,7 @@ def init_db():
             print("✅ Colores insertados")
             datos_insertados = True
 
-        # 4. Estados de Solicitud (CRÍTICO - para RF5)
+        # 4. Estados de Solicitud ( para RF5)
         if EstadoSolicitud.query.count() == 0:
             estados_solicitud = [
                 EstadoSolicitud(nombre='Pendiente', es_activo=True),
@@ -134,7 +135,7 @@ def init_db():
             print("✅ Estados de notificación insertados")
             datos_insertados = True
 
-        # 7. AHORA SÍ insertar Rubros (depende de Color)
+        # 7. insertar Rubros 
         if Rubro.query.count() == 0:
             # Obtener los colores recién insertados
             color_rojo = Color.query.filter_by(nombre='Rojo').first()
@@ -161,12 +162,62 @@ def init_db():
             print("✅ Configuración grid insertada")
             datos_insertados = True
 
+        # 9. CREAR USUARIOS ADMINISTRADORES 
+        admin_creado = False
+        
+        # Obtener IDs necesarios
+        estado_activo = EstadoUsuario.query.filter_by(tipo='Activo').first()
+        rol_admin = Rol.query.filter_by(tipo='Administrador').first()
+        rol_organizador = Rol.query.filter_by(tipo='Organizador').first()
+
+        if Usuario.query.filter_by(email='admin@feria.com').first() is None:
+            # Crear usuario Administrador usando el método correcto
+            admin_user = Usuario(
+                email='admin@feria.com',
+                estado_id=estado_activo.estado_id,
+                rol_id=rol_admin.rol_id
+            )
+            admin_user.set_password('admin123')  # Usar el método del modelo para hashear
+            
+            db.session.add(admin_user)
+            db.session.flush()
+            
+
+            print("✅ Usuario Administrador creado: admin@feria.com / admin123")
+            admin_creado = True
+
+        # 10. Crear usuario Organizador también
+        if Usuario.query.filter_by(email='organizador@feria.com').first() is None:
+            org_user = Usuario(
+                email='organizador@feria.com',
+                estado_id=estado_activo.estado_id,
+                rol_id=rol_organizador.rol_id
+            )
+            org_user.set_password('org123')  # Usar el método del modelo
+            
+            db.session.add(org_user)
+            db.session.flush()
+            
+            print("✅ Usuario Organizador creado: organizador@feria.com / org123")
+            admin_creado = True
+
         db.session.commit()
 
         return jsonify({
             'success': True,
             'message': '✅ Base de datos inicializada completamente',
             'datos_insertados': datos_insertados,
+            'admins_creados': admin_creado,
+            'credenciales_admin': {
+                'email': 'admin@feria.com',
+                'password': 'admin123',
+                'rol': 'Administrador'
+            },
+            'credenciales_organizador': {
+                'email': 'organizador@feria.com',
+                'password': 'org123',
+                'rol': 'Organizador'
+            },
             'estadisticas': {
                 'roles': Rol.query.count(),
                 'estados_usuario': EstadoUsuario.query.count(),
@@ -176,7 +227,8 @@ def init_db():
                 'colores': Color.query.count(),
                 'rubros': Rubro.query.count(),
                 'config_grid': ConfiguracionGrid.query.count(),
-                'usuarios': Usuario.query.count()
+                'usuarios': Usuario.query.count(),
+                'administradores': Administrador.query.count()
             }
         }), 200
 
@@ -202,10 +254,18 @@ def status():
             'notificaciones': Notificacion.query.count(),
         }
         
+        # Verificar si existen los usuarios admin
+        admin_user = Usuario.query.filter_by(email='admin@feria.com').first()
+        org_user = Usuario.query.filter_by(email='organizador@feria.com').first()
+        
         return jsonify({
             'success': True,
             'database': 'MySQL',
             'estado': 'Conectado',
+            'usuarios_admin': {
+                'admin_existe': admin_user is not None,
+                'organizador_existe': org_user is not None
+            },
             'estadisticas': total_tablas
         }), 200
     except Exception as e:

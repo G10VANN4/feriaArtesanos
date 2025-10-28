@@ -12,7 +12,7 @@ class Solicitud(db.Model):
     descripcion = db.Column(db.Text)
     dimensiones_ancho = db.Column(db.Numeric(8, 2), default=3.00)
     dimensiones_largo = db.Column(db.Numeric(8, 2), default=3.00)
-    foto_url = db.Column(db.String(500))
+    #foto_url = db.Column(db.String(500))
     rubro_id = db.Column(db.Integer, db.ForeignKey('Rubro.rubro_id'), nullable=False)
     parcelas_necesarias = db.Column(db.Integer, nullable=False, default=1)
     costo_total = db.Column(db.Numeric(10, 2), nullable=False)
@@ -36,7 +36,7 @@ class Solicitud(db.Model):
             'descripcion': self.descripcion,
             'dimensiones_ancho': float(self.dimensiones_ancho) if self.dimensiones_ancho else None,
             'dimensiones_largo': float(self.dimensiones_largo) if self.dimensiones_largo else None,
-            'foto_url': self.foto_url,
+            #'foto_url': self.foto_url,
             'rubro_id': self.rubro_id,
             'parcelas_necesarias': self.parcelas_necesarias,
             'costo_total': float(self.costo_total) if self.costo_total else None,

@@ -1,5 +1,5 @@
-from flask import Blueprint, request, jsonify # Importamos Blueprint
-from flask_jwt_extended import jwt_required, get_jwt_identity # Importamos JWT
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.base import db
 from models.solicitud import Solicitud          
 from models.artesano import Artesano            
@@ -21,7 +21,6 @@ class AdminController:
             return {'msg': 'Acceso denegado. Se requiere rol de Administrador u Organizador.'}, 403
         return True
 
-
     @staticmethod
     def get_solicitudes_dashboard(filtro_estado=None, busqueda_termino=None, current_user=None):
         permisos = AdminController._check_admin_permissions(current_user)
@@ -32,9 +31,9 @@ class AdminController:
             query = Solicitud.query.options(
                 joinedload(Solicitud.estado_rel),
                 joinedload(Solicitud.rubro_rel),
-                joinedload(Solicitud.artesano_rel).joinedload(Artesano.usuario_perfil)
+                joinedload(Solicitud.artesano_rel)  
             )
-            query = query.join(Solicitud.estado_rel).join(Solicitud.rubro_rel).join(Solicitud.artesano_rel).join(Artesano.usuario_perfil)
+            query = query.join(Solicitud.estado_rel).join(Solicitud.rubro_rel).join(Solicitud.artesano_rel)
 
             if filtro_estado and filtro_estado != 'all':
                 query = query.filter(EstadoSolicitud.nombre == filtro_estado)
@@ -43,7 +42,7 @@ class AdminController:
                 term = f"%{busqueda_termino.lower()}%"
                 query = query.filter(or_(
                     db.cast(Solicitud.solicitud_id, db.String).ilike(term),
-                    db.func.lower(Usuario.nombre).like(term), 
+                    db.func.lower(Artesano.nombre).like(term), 
                     db.func.lower(Rubro.tipo).like(term)      
                 ))
 
@@ -53,7 +52,7 @@ class AdminController:
             for s in solicitudes: 
                 data.append({
                     'id': s.solicitud_id,
-                    'nombre': s.artesano_rel.usuario_perfil.nombre,
+                    'nombre': s.artesano_rel.nombre,  
                     'rubro': s.rubro_rel.tipo,
                     'dimensiones': f"{float(s.dimensiones_largo)}x{float(s.dimensiones_ancho)}", 
                     'estado': s.estado_rel.nombre,
@@ -61,7 +60,7 @@ class AdminController:
                     
                     'originalData': {
                         'solicitud_id': s.solicitud_id, 
-                        'nombre': s.artesano_rel.usuario_perfil.nombre,
+                        'nombre': s.artesano_rel.nombre,  
                         'rubro': s.rubro_rel.tipo,
                         'alto': float(s.dimensiones_largo), 
                         'ancho': float(s.dimensiones_ancho), 
@@ -113,7 +112,6 @@ class AdminController:
         except Exception as e:
             db.session.rollback()
             return {'msg': 'Error interno al actualizar la solicitud.'}, 500
-
 
     @staticmethod
     def cancelar_solicitud_admin(solicitud_id, current_user):

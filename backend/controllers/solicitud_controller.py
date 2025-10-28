@@ -1,4 +1,4 @@
-# controllers/solicitud_controller.py
+# controllers/solicitud_controller.py - CORREGIDO
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.base import db
@@ -15,41 +15,70 @@ solicitud_bp = Blueprint('solicitud_bp', __name__, url_prefix='/solicitudes')
 @solicitud_bp.route('', methods=['POST'])
 @jwt_required()
 def crear_solicitud():
+    """
+    ENDPOINT UNIFICADO: Crea perfil Y solicitud en una sola operación
+    """
     try:
         current_user = get_jwt_identity()
         data = request.get_json()
         
-        # Verificar que sea artesano y tenga perfil
+        # Verificar que sea artesano
         if current_user['rol_id'] != 1:
             return jsonify({'msg': 'Solo artesanos pueden crear solicitudes'}), 403
         
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
-        if not artesano:
-            return jsonify({'msg': 'Complete su perfil primero'}), 400
         
-        # Validar datos requeridos
-        required_fields = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id', 'terminos_aceptados']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'msg': f'Campo {field} es requerido'}), 400
+        campos_requeridos_perfil = ['nombre', 'telefono', 'dni']
+        for campo in campos_requeridos_perfil:
+            if campo not in data:
+                return jsonify({'msg': f'Campo de perfil {campo} es requerido'}), 400
+        
+        # Validar longitudes de los modelo
+        if len(data['dni']) > 8:
+            return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
+        if len(data['nombre']) > 20:
+            return jsonify({'msg': 'El nombre no puede tener más de 20 caracteres'}), 400
+        if len(data['telefono']) > 20:
+            return jsonify({'msg': 'El teléfono no puede tener más de 20 caracteres'}), 400
+        
+        # Verificar el DNI
+        artesano_existente = Artesano.query.filter_by(dni=data['dni']).first()
+        if artesano_existente:
+            return jsonify({'msg': 'El DNI ya está registrado'}), 400
+        
+        # Campos olbigatorios
+        campos_requeridos_solicitud = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id', 'terminos_aceptados']
+        for campo in campos_requeridos_solicitud:
+            if campo not in data:
+                return jsonify({'msg': f'Campo de solicitud {campo} es requerido'}), 400
         
         if not data['terminos_aceptados']:
             return jsonify({'msg': 'Debe aceptar los términos y condiciones'}), 400
         
-        # Obtener rubro y calcular costo
+        # Perfil usuario
+        artesano = Artesano(
+            usuario_id=current_user['id'],
+            nombre=data['nombre'],
+            telefono=data['telefono'],
+            dni=data['dni']
+        )
+        db.session.add(artesano)
+        db.session.flush()
+        
+        # Info del puestp
         rubro = Rubro.query.get(data['rubro_id'])
         if not rubro:
             return jsonify({'msg': 'Rubro no válido'}), 400
         
-        # Calcular parcelas necesarias (RF9)
+        # Calcular parcelas necesarias
         ancho = float(data['dimensiones_ancho'])
         largo = float(data['dimensiones_largo'])
         parcelas_necesarias = max(1, round((ancho / 3.0) * (largo / 3.0)))
         costo_total = parcelas_necesarias * float(rubro.precio_parcela)
         
-        # Estado inicial
+        # Estado inicial pendiente 
         estado_pendiente = EstadoSolicitud.query.filter_by(nombre='Pendiente').first()
         
+        # Crear solicitud
         nueva_solicitud = Solicitud(
             artesano_id=artesano.artesano_id,
             estado_solicitud_id=estado_pendiente.estado_solicitud_id,
@@ -64,9 +93,9 @@ def crear_solicitud():
         )
         
         db.session.add(nueva_solicitud)
-        db.session.commit()
+        db.session.flush()
         
-        # Fotos de la solicitud
+        # fotos del puesto
         fotos_urls = data.get('fotos', [])
         fotos_creadas = []  
         
@@ -76,19 +105,20 @@ def crear_solicitud():
                 url_foto=url_foto
             )
             db.session.add(nueva_foto)
-            fotos_creadas.append(nueva_foto)  
+            fotos_creadas.append(nueva_foto)
         
         db.session.commit()
 
-        # Notificación si supera dimensiones estándar (RF21)
+        # notificación si supera dimensiones estándar
         mensaje_notificacion = ""
         if parcelas_necesarias > 1:
             mensaje_notificacion = f"Su puesto requiere {parcelas_necesarias} parcelas. Costo total: ${costo_total}"
-        
+
         return jsonify({
             'msg': 'Solicitud creada exitosamente',
+            'perfil_artesano': artesano.to_dict(),
             'solicitud': nueva_solicitud.to_dict(),
-            'fotos': [f.to_dict() for f in fotos_creadas], 
+            'fotos': [f.to_dict() for f in fotos_creadas],
             'notificacion': mensaje_notificacion
         }), 201
         
@@ -96,33 +126,47 @@ def crear_solicitud():
         db.session.rollback()
         return jsonify({'msg': 'Error al crear solicitud', 'error': str(e)}), 500
 
+
+# Obtener la SOLICITUD del artesano 
 @solicitud_bp.route('', methods=['GET'])
 @jwt_required()
-def obtener_solicitudes_artesano():
+def obtener_solicitud_artesano():
     current_user = get_jwt_identity()
     
     artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
     if not artesano:
         return jsonify({'msg': 'Perfil no encontrado'}), 404
     
-    # Obtener todas las solicitudes del artesano
-    solicitudes = Solicitud.query.filter_by(artesano_id=artesano.artesano_id).all()
+    # Obtener la solicitud del artesano
+    solicitud = Solicitud.query.filter_by(artesano_id=artesano.artesano_id).first()
     
-    # Formatear respuesta incluyendo las fotos de cada solicitud
-    solicitudes_con_fotos = []
-    for solicitud in solicitudes:
-        # Obtener las fotos de esta solicitud
-        fotos = SolicitudFoto.query.filter_by(solicitud_id=solicitud.solicitud_id).all()
-        
-        # Crear el objeto de solicitud con fotos incluidas
-        solicitud_data = solicitud.to_dict()
-        solicitud_data['fotos'] = [foto.to_dict() for foto in fotos]
-        
-        solicitudes_con_fotos.append(solicitud_data)
+    if not solicitud:
+        return jsonify({
+            'perfil_artesano': {
+                'nombre': artesano.nombre,
+                'telefono': artesano.telefono,
+                'dni': artesano.dni
+            },
+            'solicitud': None,
+            'msg': 'No tiene solicitudes activas'
+        }), 200
+    
+    # Obtener las fotos de esta solicitud
+    fotos = SolicitudFoto.query.filter_by(solicitud_id=solicitud.solicitud_id).all()
+    
+    # Crear el objeto de solicitud con fotos incluidas
+    solicitud_data = solicitud.to_dict()
+    solicitud_data['fotos'] = [foto.to_dict() for foto in fotos]
     
     return jsonify({
-        'solicitudes': solicitudes_con_fotos
+        'perfil_artesano': {
+            'nombre': artesano.nombre,
+            'telefono': artesano.telefono,
+            'dni': artesano.dni
+        },
+        'solicitud': solicitud_data  
     }), 200
+
 
 @solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['POST'])
 @jwt_required()
@@ -159,6 +203,8 @@ def cancelar_solicitud(solicitud_id):
         db.session.rollback()
         return jsonify({'msg': 'Error al cancelar solicitud', 'error': str(e)}), 500
     
+
+
 @solicitud_bp.route('/<int:solicitud_id>/fotos', methods=['POST'])
 @jwt_required()
 def agregar_foto_solicitud(solicitud_id):
@@ -200,6 +246,7 @@ def agregar_foto_solicitud(solicitud_id):
         db.session.rollback()
         return jsonify({'msg': 'Error al agregar foto', 'error': str(e)}), 500
 
+
 @solicitud_bp.route('/<int:solicitud_id>/fotos', methods=['GET'])
 @jwt_required()
 def obtener_fotos_solicitud(solicitud_id):
@@ -228,6 +275,7 @@ def obtener_fotos_solicitud(solicitud_id):
         
     except Exception as e:
         return jsonify({'msg': 'Error al obtener fotos', 'error': str(e)}), 500
+    
 
 @solicitud_bp.route('/fotos/<int:foto_id>', methods=['DELETE'])
 @jwt_required()
