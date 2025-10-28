@@ -1,359 +1,338 @@
-
-/*
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { FiEdit, FiTrash2, FiEye, FiCheckCircle, FiXCircle, FiClock, FiAlertTriangle } from "react-icons/fi";
+import { FiEdit3, FiEye, FiTrash2, FiCheckCircle, FiXCircle, FiClock, FiAlertTriangle, FiSearch } from "react-icons/fi";
 import axios from "axios";
+import "../styles/App.css";
 
-// --- URLs TEMPORALES ---
-const API_URL = "http://localhost:5000/artesanos/";
+const API_BASE_URL = "http://localhost:5000/api/v1"; 
 
-// --- CONSTANTES Y CÓDIGO DE COLORES (Basado en RNF10) ---
+// --- CONSTANTES DE DISEÑO ---
+const COLOR_PRIMARY = "#A0522D"; 
+const COLOR_TEXT = "#38312B"; 
+
+// Clases CSS de tu App.css
+const mainContainerClass = "dashboard-page-container"; 
+const DASHBOARD_CARD_CLASS = "dashboard-main-card"; 
 
 const RUBROS = {
-  Artesanías: { color: "bg-blue-100 text-blue-800", badgeColor: "bg-blue-600" },
-  Gastronomía: { color: "bg-red-100 text-red-800", badgeColor: "bg-red-600" },
-  Reventa: { color: "bg-green-100 text-green-800", badgeColor: "bg-green-600" },
+    Artesanías: { badgeColor: "bg-blue-600" },
+    Gastronomía: { badgeColor: "bg-red-600" },
+    Reventa: { badgeColor: "bg-green-600" },
 };
 
 const ESTADOS = {
-  Aprobada: { badge: "bg-green-500", icon: <FiCheckCircle /> },
-  Pendiente: { badge: "bg-yellow-500", icon: <FiClock /> },
-  Rechazada: { badge: "bg-red-500", icon: <FiXCircle /> },
-  Cancelada: { badge: "bg-gray-500", icon: <FiTrash2 /> },
-  "Pendiente por Modificación": { badge: "bg-orange-500", icon: <FiAlertTriangle /> },
+    Aprobada: { badge: "bg-green-500", icon: <FiCheckCircle /> },
+    Pendiente: { badge: "bg-yellow-500", icon: <FiClock /> },
+    Rechazada: { badge: "bg-red-500", icon: <FiXCircle /> },
+    Cancelada: { badge: "bg-gray-500", icon: <FiTrash2 /> },
+    "Pendiente por Modificación": { badge: "bg-orange-500", icon: <FiAlertTriangle /> },
 };
 
-// --- Datos de Prueba (Simulando la información del Artesano/Puesto/Solicitud) ---
-const DUMMY_ARTISANS = [
-  {
-    artesano_id: 1,
-    nombre: "Javier Pérez",
-    rubro: "Artesanías",
-    dimensiones: "3x3",
-    alto: 3,
-    ancho: 3,
-    telefono: "11-5555-1234",
-    dni: "30.123.456",
-    descripcion_puesto: "Cerámica gres y alfarería tradicional.",
-    estado_solicitud: "Aprobada",
-    fecha_solicitud: new Date("2024-09-01T10:00:00Z").toISOString(),
-  },
-  {
-    artesano_id: 2,
-    nombre: "Ana Gómez",
-    rubro: "Gastronomía",
-    dimensiones: "2x4",
-    alto: 2,
-    ancho: 4,
-    telefono: "11-4444-5678",
-    dni: "35.987.654",
-    descripcion_puesto: "Food truck de comida vegana y cerveza artesanal.",
-    estado_solicitud: "Pendiente",
-    fecha_solicitud: new Date("2024-09-15T12:30:00Z").toISOString(),
-  },
-  {
-    artesano_id: 3,
-    nombre: "Martín Cruz",
-    rubro: "Reventa",
-    dimensiones: "3x2",
-    alto: 3,
-    ancho: 2,
-    telefono: "11-3333-9012",
-    dni: "28.000.111",
-    descripcion_puesto: "Figuras de acción importadas y Funko Pops.",
-    estado_solicitud: "Pendiente por Modificación",
-    fecha_solicitud: new Date("2024-10-01T08:45:00Z").toISOString(),
-  },
-];
-// --- Fin Datos de Prueba ---
 
-const AdminDashboard = () => {
-  // Filtros ahora basados en el 'estado_solicitud'
-  const [filter, setFilter] = useState("all"); 
-  const [searchTerm, setSearchTerm] = useState(""); 
-  const [artesanos, setArtesanos] = useState([]);
-  
-  // Estado para la edición (Modal de Aprobación/Modificación)
-  const [editId, setEditId] = useState(null);
-  const [editArtesano, setEditArtesano] = useState({
-    estado_solicitud: "Pendiente",
-    notas_admin: "", // Campo nuevo para la nota del administrador
-  });
-
-  // Estado para el modal de detalles (Muestra la descripción del puesto)
-  const [artesanoDetails, setArtesanoDetails] = useState(null);
-
-  useEffect(() => {
-    fetchArtesanos();
-  }, []);
-
-  const fetchArtesanos = async () => {
-    console.log("Simulando fetch de artesanos...");
-    // Simulación de la llamada API
-    try {
-      // Sustituir esto por la llamada real cuando la API esté lista:
-      // const response = await axios.get(API_URL);
-      const responseData = DUMMY_ARTISANS;
-      
-      const formattedData = responseData.map((item) => ({
-        id: item.artesano_id,
-        nombre: item.nombre,
-        rubro: item.rubro,
-        dimensiones: item.dimensiones,
-        estado: item.estado_solicitud,
-        fechaSolicitud: new Date(item.fecha_solicitud).toLocaleDateString(),
-        // Mantener datos originales para el modal de detalle
-        originalData: item
-      }));
-      setArtesanos(formattedData);
-    } catch (error) {
-      console.error("Error al obtener artesanos:", error);
-      // Usar dummy data si falla la simulación
-      setArtesanos(DUMMY_ARTISANS.map(item => ({
-        id: item.artesano_id,
-        nombre: item.nombre,
-        rubro: item.rubro,
-        dimensiones: item.dimensiones,
-        estado: item.estado_solicitud,
-        fechaSolicitud: new Date(item.fecha_solicitud).toLocaleDateString(),
-        originalData: item
-      })));
-    }
-  };
-
-  const handleEditArtesanoChange = (e) => {
-    setEditArtesano({ ...editArtesano, [e.target.name]: e.target.value });
-  };
-
-  const handleEditClick = (artesano) => {
-    setEditId(artesano.id);
-    setEditArtesano({
-      estado_solicitud: artesano.estado,
-      notas_admin: artesano.originalData.notas_admin || "",
-    });
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      const dataToPatch = {
-        estado_solicitud: editArtesano.estado_solicitud,
-        // En una API real, aquí se enviarían las notas_admin
-        // y se actualizaría el registro en la base de datos
-      };
-
-      // Sustituir por la llamada real:
-      // await axios.patch(`${API_URL}${editId}/solicitud`, dataToPatch); 
-      
-      // Simulación de guardado
-      console.log(`Simulando PATCH a ${API_URL}${editId} con datos:`, dataToPatch);
-      
-      alert(`Estado de Solicitud de ${editArtesano.estado_solicitud} guardado (Simulación)`);
-      
-      setEditId(null);
-      setEditArtesano({ estado_solicitud: "Pendiente", notas_admin: "" });
-      fetchArtesanos(); // Refrescar lista (simulado)
-    } catch (error) {
-      alert("Error al actualizar la solicitud (Simulación)");
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditId(null);
-    setEditArtesano({ estado_solicitud: "Pendiente", notas_admin: "" });
-  };
-  
-  const handleViewDetails = (artesano) => {
-    setArtesanoDetails(artesano.originalData);
-  };
-
-  // Lógica de filtrado y búsqueda
-  const filteredData = artesanos
-    .filter((item) => {
-      // Filtros por Estado de Solicitud
-      if (filter !== "all") return item.estado === filter;
-      return true;
-    })
-    .filter(
-      (item) =>
-        // Búsqueda por Nombre, ID o Rubro
-        item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(item.id).includes(searchTerm) ||
-        item.rubro.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-  // Clases CSS reutilizadas del estilo beige/marrón
-  const primaryButtonClass = "bg-[#A0522D] text-white px-4 py-2 rounded-lg hover:bg-[#8B4513] transition-colors";
-  const secondaryButtonClass = "bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-colors";
-  const mainContainerClass = "container mx-auto p-4 bg-[#F8F4E3] min-h-screen";
-
-  return (
-    <div className={mainContainerClass}>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
-        <h1 className="text-3xl font-bold text-[#5C4033] mb-6">
-          Gestión de Solicitudes de Artesanos (Dashboard)
-        </h1>
+const AdminDashboard = ({ history }) => {
+    const [filter, setFilter] = useState("all"); 
+    const [searchTerm, setSearchTerm] = useState(""); 
+    const [solicitudes, setSolicitudes] = useState([]); 
+    const [loading, setLoading] = useState(true);
     
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="flex space-x-2 flex-wrap gap-2">
-            {["all", ...Object.keys(ESTADOS).filter(e => e !== "Cancelada")].map((status) => (
-              <button 
-                key={status} 
-                onClick={() => setFilter(status)} 
-                className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
-                  filter === status 
-                    ? primaryButtonClass 
-                    : "bg-[#FAF0E6] text-[#A0522D] border border-[#A0522D] hover:bg-[#E0DBCF]"
-                }`}
-              >
-                {status === "all" ? "Todas" : status}
-              </button>
-            ))}
-          </div>
+    // Modal states
+    const [editId, setEditId] = useState(null);
+    const [editData, setEditData] = useState({ estado_solicitud: "Pendiente", notas_admin: "" });
+    const [solicitudDetails, setSolicitudDetails] = useState(null);
+    const [activeSolicitudId, setActiveSolicitudId] = useState(null);
 
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              placeholder="Buscar por Nombre, ID o Rubro..."
-              className="w-full p-2 pl-8 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A0522D] border-[#A0522D] text-[#38312B] bg-[#FAF0E6]"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          
-            <svg className="absolute left-2 top-3 h-4 w-4 text-[#A0522D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
 
-        <div className="overflow-x-auto bg-[#FAF0E6] rounded-lg shadow-xl border border-[#E0DBCF]">
-          <table className="min-w-full divide-y divide-[#E0DBCF]">
-            <thead className="bg-[#FAF0E6]">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Artesano</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Rubro</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Dimensiones</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Fecha Solicitud</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Estado Solicitud</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#5C4033] uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-[#E0DBCF]">
-              {filteredData.map((artesano) => (
-                <tr key={artesano.id} className="hover:bg-[#F8F4E3] transition-colors">
-                  <td className="px-6 py-4 text-sm font-semibold text-[#38312B]">{artesano.id}</td>
-                  <td className="px-6 py-4 text-sm text-[#38312B]">{artesano.nombre}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${RUBROS[artesano.rubro].badgeColor}`}>
-                      {artesano.rubro}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-[#38312B]">{artesano.dimensiones} m²</td>
-                  <td className="px-6 py-4 text-sm text-[#38312B]">{artesano.fechaSolicitud}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${ESTADOS[artesano.estado].badge} flex items-center gap-1`}>
-                      {ESTADOS[artesano.estado].icon} {artesano.estado}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 flex space-x-2">
+    // --- CLASES CSS ---
+    const primaryButtonClass = "btn-login"; 
+    const secondaryButtonClass = "btn-secondary"; 
+
+    // --- FUNCIÓN DE FETCH (Mantenida) ---
+    const fetchSolicitudes = useCallback(async () => {
+        const token = localStorage.getItem('access_token');
+        if (!token) { setLoading(false); return; }
+
+        setLoading(true);
+        try {
+            const response = await axios.get(`${API_BASE_URL}/solicitudes`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: {
+                    filtro_estado: filter !== 'all' ? filter : undefined,
+                    busqueda_termino: searchTerm || undefined 
+                }
+            });
+            setSolicitudes(response.data.map(item => ({...item, originalData: item}))); 
+            
+        } catch (error) {
+            console.error("Error al obtener solicitudes:", error);
+            alert("Error al cargar datos. Verifique su sesión o permisos.");
+            setSolicitudes([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [filter, searchTerm]); 
+
+    useEffect(() => {
+        fetchSolicitudes();
+    }, [fetchSolicitudes]);
+
+    // --- HANDLERS DE ACCIÓN (Mantenidos) ---
+    const handleEditClick = (solicitud) => {
+        setActiveSolicitudId(solicitud.id);
+        setEditId(solicitud.id);
+        setEditData({ estado_solicitud: solicitud.estado, notas_admin: solicitud.originalData.notas_admin || "" });
+    };
+    
+    const handleSaveEdit = async () => {
+        const idToUpdate = editId || activeSolicitudId;
+        const token = localStorage.getItem('access_token');
+        if (!token || !idToUpdate) return;
+        try {
+            const URL = `${API_BASE_URL}/solicitudes/${idToUpdate}/estado`;
+            await axios.patch(URL, editData, { headers: { 'Authorization': `Bearer ${token}` } });
+            alert(`Estado de Solicitud ID ${idToUpdate} actualizado a ${editData.estado_solicitud}`);
+            handleCancelEdit();
+            fetchSolicitudes();
+        } catch (error) {
+            console.error("Error al actualizar la solicitud:", error);
+            alert("Error al actualizar la solicitud. Verifique los permisos o el estado.");
+        }
+    };
+    
+    const handleCancelRequest = async (solicitudId) => {
+        if (!window.confirm(`¿Está seguro de CANCELAR la Solicitud ID ${solicitudId}?`)) return;
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+
+        try {
+            const URL = `${API_BASE_URL}/solicitudes/${solicitudId}/cancelar`;
+            await axios.patch(URL, {}, { headers: { 'Authorization': `Bearer ${token}` } });
+            alert(`Solicitud ID ${solicitudId} CANCELADA exitosamente.`);
+            fetchSolicitudes(); 
+        } catch (error) {
+            console.error("Error al cancelar la solicitud:", error);
+            alert("Error al cancelar la solicitud. Asegúrese de tener permisos.");
+        }
+    };
+    
+    const handleViewDetails = (solicitud) => {
+        setSolicitudDetails(solicitud.originalData);
+    };
+    
+    const handleCancelEdit = () => {
+        setEditId(null);
+        setActiveSolicitudId(null);
+        setEditData({ estado_solicitud: "Pendiente", notas_admin: "" });
+    };
+
+
+    // --- RENDERIZADO DEL COMPONENTE ---
+    return (
+        <div className={mainContainerClass}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                
+                
+                <div className={DASHBOARD_CARD_CLASS}>
+                
+                    <h1 className="text-3xl font-bold mb-6 border-b pb-2"> 
+                        Gestión de Solicitudes 📋
+                    </h1>
+                
                     
-                    <button onClick={() => handleEditClick(artesano)} className="text-[#A0522D] hover:text-[#8B4513]" title="Gestionar Solicitud">
-                      <FiEdit size={18} />
-                    </button>
-                   
-                    <button onClick={() => handleViewDetails(artesano)} className="text-blue-600 hover:text-blue-900" title="Ver Detalles del Puesto">
-                      <FiEye size={18} />
-                    </button>
+                    <div className="flex flex-col md:flex-row gap-6">
+                        
+                        
+                        <div className="flex-1 min-w-0"> 
+                            
+                            
+                            <div className="flex flex-col gap-3 mb-4 p-4 bg-white border border-gray-200 rounded-xl shadow-md">
+                                
+                                <div className="relative w-full">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por ID, Artesano o Rubro..."
+                                        className="form-input w-full p-2 pl-10" 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    <FiSearch className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                                </div>
+                                
+                            
+                                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                                    <span className="text-sm font-medium text-gray-600 self-center">Filtrar por:</span>
+                                    {["all", ...Object.keys(ESTADOS)].map((status) => (
+                                        <button 
+                                            key={status} 
+                                            onClick={() => setFilter(status)} 
+                                            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap 
+                                                ${filter === status 
+                                                    ? `bg-[#A0522D] text-white shadow-sm` 
+                                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                }`}
+                                        >
+                                            {status === "all" ? "Todas" : status}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            
+                            {loading ? (
+                                <p className="text-center text-xl text-gray-700 py-10">Cargando solicitudes...</p>
+                            ) : (
+                                // **BLOQUE DE TABLA ULTRA LIMPIO**
+                                <div className={`p-0 overflow-x-auto border border-gray-300 rounded-xl bg-white shadow-md`}> 
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-200 sticky top-0"> 
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Artesano</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Rubro</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Dim. (m²)</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Estado</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-100">
+                                            {solicitudes.map((solicitud) => (
+                                                <tr 
+                                                    key={solicitud.id} 
+                                                    className={`hover:bg-amber-50 transition-colors cursor-pointer ${activeSolicitudId === solicitud.id ? 'bg-amber-100 border-l-4 border-amber-600' : ''}`}
+                                                    onClick={() => setActiveSolicitudId(solicitud.id)}
+                                                >
+                                                    <td className="px-6 py-4 text-sm font-medium">
+                                                        {solicitud.id}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm">{solicitud.nombre}</td> 
+                                                    <td className="px-6 py-4 text-sm">
+                                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${RUBROS[solicitud.rubro]?.badgeColor || 'bg-gray-500'}`}>
+                                                        {solicitud.rubro}
+                                                    </span>
+                                                    </td>
+                                                    {/* NOTE: Aquí asumo que la dimensión es el nombre del artesano, si no, ajusta esta línea */}
+                                                    <td className="px-6 py-4 text-sm">{solicitud.nombre}</td> 
+                                                    <td className="px-6 py-4 text-sm">
+                                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${ESTADOS[solicitud.estado]?.badge || 'bg-black'} flex items-center gap-1 shadow-sm`}>
+                                                        {ESTADOS[solicitud.estado]?.icon} {solicitud.estado}
+                                                    </span>
+                                                    </td>
+                                                    
+                                                    <td className="px-6 py-4 flex space-x-2">
+                                                        {/* BOTÓN EDITAR */}
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(solicitud); }} className="text-[#A0522D] hover:text-[#8B4513] p-1 rounded hover:bg-gray-100">
+                                                            <FiEdit3 size={18} />
+                                                        </button>
+                                                        
+                                                        {/* BOTÓN DETALLES */}
+                                                        <button onClick={(e) => { e.stopPropagation(); handleViewDetails(solicitud); }} className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-gray-100" title="Ver Detalles">
+                                                            <FiEye size={18} />
+                                                        </button>
+                                                        
+                                                        {/* BOTÓN CANCELAR */}
+                                                        <button onClick={(e) => { e.stopPropagation(); handleCancelRequest(solicitud.id); }} className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-gray-100" title="Cancelar Solicitud">
+                                                            <FiTrash2 size={18} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                        
+                        
+                        {/* PANEL DE HERRAMIENTAS SIMPLIFICADO Y CON ESTILO CLARO */}
+                        <div className={`w-full md:w-64 flex-shrink-0 flex flex-col gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-md`}> 
+                          {/*<h3 className={`text-lg font-bold text-gray-800 mb-2 border-b pb-2`}>Herramientas</h3>*/}
+                            
+                            {/* Botón de Descargar PDF (Fondo claro: bg-gray-200) */}
+                            <button className="bg-gray-200 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-300 transition-colors shadow-sm">
+                                ⬇️ DESCARGAR PDF (Próximamente)
+                            </button>
+                            
+                        </div>
+                        
+                    </div> 
                     
-                    <button onClick={() => alert(`Simulando cancelación de Solicitud del Artesano ID: ${artesano.id}`)} className="text-red-600 hover:text-red-900" title="Cancelar Solicitud">
-                      <FiTrash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+                    {/* --- MODAL DE EDICIÓN (Mantenido) --- */}
+                    {editId && (
+                        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+                            <div className={`bg-white p-6 rounded-lg shadow-md w-full max-w-lg border border-gray-200`}> 
+                                <h2 className={`text-xl font-bold text-gray-800 mb-4`}>✍️ Gestionar Solicitud ID: {editId}</h2> 
+                                <div className="grid grid-cols-1 gap-4">
+                                
+                                <div>
+                                    <label className={`block text-sm font-medium text-gray-700 mb-1`}>Cambiar Estado de Solicitud</label>
+                                    <select 
+                                    name="estado_solicitud" 
+                                    value={editData.estado_solicitud} 
+                                    onChange={(e) => setEditData({ ...editData, estado_solicitud: e.target.value })} 
+                                    className="form-input p-2 w-full" 
+                                    >
+                                    {Object.keys(ESTADOS).map(estado => (
+                                        <option key={estado} value={estado}>{estado}</option>
+                                    ))}
+                                    </select>
+                                </div>
+                                
+                                
+                                <div>
+                                    <label className={`block text-sm font-medium text-gray-700 mb-1`}>Notas del Administrador</label>
+                                    <textarea 
+                                    name="notas_admin" 
+                                    value={editData.notas_admin} 
+                                    onChange={(e) => setEditData({ ...editData, notas_admin: e.target.value })} 
+                                    rows={3}
+                                    placeholder="Ingrese el motivo de rechazo o las modificaciones requeridas."
+                                    className="form-input p-2 w-full"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end space-x-2 mt-4">
+                                    <button onClick={handleSaveEdit} className={primaryButtonClass}>
+                                    Guardar Gestión
+                                    </button>
+                                    <button onClick={handleCancelEdit} className={secondaryButtonClass}>
+                                    Cerrar
+                                    </button>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- MODAL DE DETALLES (Mantenido) --- */}
+                    {solicitudDetails && (
+                        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+                            <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-blue-600">
+                                <h2 className={`text-xl font-bold text-gray-800 mb-4`}>👁️ Detalles de {solicitudDetails.nombre}</h2>
+                                
+                                <div className={`space-y-3 text-gray-700`}> 
+                                <p><strong>Rubro:</strong> <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white ${RUBROS[solicitudDetails.rubro]?.badgeColor || 'bg-gray-500'}`}>{solicitudDetails.rubro}</span></p>
+                                <p><strong>Dimensiones:</strong> {solicitudDetails.alto}m Alto x {solicitudDetails.ancho}m Ancho</p>
+                                <p><strong>DNI:</strong> {solicitudDetails.dni}</p>
+                                <p><strong>Teléfono:</strong> {solicitudDetails.telefono}</p>
+                                
+                                <h3 className={`text-md font-bold mt-4 text-gray-800`}>Descripción del Puesto:</h3>
+                                <p className="border border-gray-200 p-3 rounded bg-gray-50 italic text-sm">
+                                    {solicitudDetails.descripcion_puesto}
+                                </p>
+                                </div>
+                                
+                                <div className="flex justify-end mt-4">
+                                <button onClick={() => setSolicitudDetails(null)} className={secondaryButtonClass}>
+                                    Cerrar
+                                </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
         </div>
-
-        
-        {editId && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-            <div className="bg-[#FAF0E6] p-6 rounded-lg shadow-2xl w-full max-w-lg border-t-4 border-[#A0522D]">
-              <h2 className="text-xl font-bold text-[#5C4033] mb-4">Gestionar Solicitud del Artesano ID: {editId}</h2>
-              <div className="grid grid-cols-1 gap-4">
-                
-          
-                <div>
-                  <label className="block text-sm font-medium text-[#5C4033] mb-1">Cambiar Estado de Solicitud</label>
-                  <select 
-                    name="estado_solicitud" 
-                    value={editArtesano.estado_solicitud} 
-                    onChange={handleEditArtesanoChange} 
-                    className="border rounded p-2 w-full border-[#A0522D] bg-white text-[#38312B]"
-                  >
-                    {Object.keys(ESTADOS).map(estado => (
-                      <option key={estado} value={estado}>{estado}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                
-                <div>
-                  <label className="block text-sm font-medium text-[#5C4033] mb-1">Notas del Administrador</label>
-                  <textarea 
-                    name="notas_admin" 
-                    value={editArtesano.notas_admin} 
-                    onChange={handleEditArtesanoChange} 
-                    rows={3}
-                    placeholder="Ingrese el motivo de rechazo o las modificaciones requeridas (Pendiente por Modificación)."
-                    className="border rounded p-2 w-full border-[#A0522D] bg-white text-[#38312B]" 
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2 mt-4">
-                  <button onClick={handleSaveEdit} className={primaryButtonClass}>
-                    Guardar Gestión
-                  </button>
-                  <button onClick={handleCancelEdit} className={secondaryButtonClass}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        
-        {artesanoDetails && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-            <div className="bg-[#FAF0E6] p-6 rounded-lg shadow-2xl w-full max-w-md border-t-4 border-blue-600">
-              <h2 className="text-xl font-bold text-[#5C4033] mb-4">Detalles del Puesto de {artesanoDetails.nombre}</h2>
-              
-              <div className="space-y-3 text-[#38312B]">
-                <p><strong>Rubro:</strong> <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white ${RUBROS[artesanoDetails.rubro].badgeColor}`}>{artesanoDetails.rubro}</span></p>
-                <p><strong>Dimensiones:</strong> {artesanoDetails.dimensiones} ({artesanoDetails.alto}m Alto x {artesanoDetails.ancho}m Ancho)</p>
-                <p><strong>DNI:</strong> {artesanoDetails.dni}</p>
-                <p><strong>Teléfono:</strong> {artesanoDetails.telefono}</p>
-                
-                <h3 className="text-md font-bold mt-4 text-[#5C4033]">Descripción del Puesto:</h3>
-                <p className="border border-[#E0DBCF] p-3 rounded bg-white italic text-sm">
-                  {artesanoDetails.descripcion_puesto}
-                </p>
-              </div>
-              
-              <div className="flex justify-end mt-4">
-                <button onClick={() => setArtesanoDetails(null)} className={secondaryButtonClass}>
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
+    );
 };
 
-export default AdminDashboard; */
+export default AdminDashboard;

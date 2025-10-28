@@ -8,6 +8,11 @@
 
 /* --- RESET & BASE --- */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -574,6 +579,38 @@ h3 {
 .link-login:hover {
   color: #8b4513;
   text-decoration: underline;
+}
+
+
+.dashboard-page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center; 
+  justify-content: center; 
+  padding: 3rem;
+  background-color: #F8F4E3; 
+}
+
+
+.dashboard-main-card {
+  background-color: #FAF0E6; 
+  padding: 2.5rem 3rem;
+  border-radius: 16px; 
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15); 
+  width: 100%;
+  max-width: 1200px; 
+  border-top: 8px solid #A0522D; 
+}
+
+
+.table-row-hover:hover {
+  background-color: rgba(160, 82, 45, 0.05); 
+}
+
+
+.table-header {
+  background-color: #E0DBCF; 
+  color: #5C4033; 
 }
 
 /* Contenedor principal */
