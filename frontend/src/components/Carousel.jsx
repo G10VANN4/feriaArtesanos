@@ -1,11 +1,13 @@
-// src/components/Carousel.jsx
+
+
 import React, { useState } from 'react';
-// Importa las imágenes directamente
 import feria1 from '../../public/images/feria1.jpg';
 import feria2 from '../../public/images/feria2.jpg';
 import feria3 from '../../public/images/feria3.jpg';
 import feria4 from '../../public/images/feria4.jpg';
 import feria5 from '../../public/images/feria5.jpg';
+
+
 
 const images = [
     { id: 1, url: feria1, alt: "pergola" },
@@ -56,4 +58,4 @@ const Carousel = () => {
   );
 };
 
-export default Carousel;
+export default Carousel; 

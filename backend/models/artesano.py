@@ -1,4 +1,5 @@
 from .base import db
+from sqlalchemy.orm import relationship
 
 class Artesano(db.Model):
     __tablename__ = 'Artesano'
@@ -11,6 +12,7 @@ class Artesano(db.Model):
     fecha_registro = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     
+
     def to_dict(self):
         return {
             'artesano_id': self.artesano_id,

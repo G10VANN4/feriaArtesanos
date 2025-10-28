@@ -1,4 +1,5 @@
 from .base import db
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 class Solicitud(db.Model):
@@ -20,7 +21,12 @@ class Solicitud(db.Model):
     comentarios_admin = db.Column(db.Text)
     terminos_aceptados = db.Column(db.Boolean, nullable=False, default=False)
     fecha_cancelacion = db.Column(db.DateTime)
-
+    
+    artesano_rel = relationship("Artesano", backref="solicitudes_enviadas")
+    rubro_rel = relationship("Rubro", backref="solicitudes_por_rubro")
+    estado_rel = relationship("EstadoSolicitud", backref="solicitudes_en_estado")
+    #administrador_rel = relationship("Administrador", backref="solicitudes_gestionadas")
+    
     def to_dict(self):
         return {
             'solicitud_id': self.solicitud_id,

@@ -1,6 +1,7 @@
 from .base import db
 from passlib.hash import sha256_crypt
 from datetime import datetime
+from sqlalchemy.orm import relationship
 
 class Usuario(db.Model):
     __tablename__ = 'Usuario'
@@ -13,7 +14,8 @@ class Usuario(db.Model):
     rol_id = db.Column(db.Integer, db.ForeignKey('Rol.rol_id'), nullable=False)
     fecha_registro = db.Column(db.DateTime, default=datetime.utcnow)
     
-    
+    artesano_perfil = db.relationship("Artesano", backref="usuario_perfil", uselist=False)
+
     def set_password(self, password):
         self.contraseña = sha256_crypt.hash(password)
     
