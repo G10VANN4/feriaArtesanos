@@ -1,31 +1,43 @@
 # controllers/artesano_controller.py
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from models.base import db
+# ¡Importante! Añade get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from models.artesano import Artesano
+from models.usuario import Usuario
+from models.base import db
 
-# Crear blueprint directamente
+# (Asegúrate que tu blueprint se llame así, o ajústalo)
 artesano_bp = Blueprint('artesano_bp', __name__, url_prefix='/artesano')
 
 @artesano_bp.route('/perfil', methods=['POST'])
 @jwt_required()
 def completar_perfil():
     try:
-        current_user = get_jwt_identity()
+        # --- ESTA ES LA CORRECCIÓN IMPORTANTE ---
+        
+        # 1. Obtener el ID del usuario (el 'sub') y convertirlo a entero
+        user_id = int(get_jwt_identity())
+        
+        # 2. Obtener los claims adicionales (rol_id, email)
+        claims = get_jwt()
+        user_rol = claims['rol_id']
+        
+        # --- FIN DE LA CORRECCIÓN ---
+
         data = request.get_json()
         
-        # Verificar que el usuario sea artesano
-        if current_user['rol_id'] != 1:
+        # 3. Usar las variables correctas
+        if user_rol != 1:
             return jsonify({'msg': 'Solo artesanos pueden completar perfil'}), 403
         
-        # Verificar si ya tiene perfil
-        artesano_existente = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        # 4. Usar las variables correctas
+        artesano_existente = Artesano.query.filter_by(usuario_id=user_id).first()
         if artesano_existente:
             return jsonify({'msg': 'El perfil ya fue completado'}), 400
         
         # Crear perfil de artesano
         nuevo_artesano = Artesano(
-            usuario_id=current_user['id'],
+            usuario_id=user_id, # 5. Usar las variables correctas
             nombre=data['nombre'],
             dni=data['dni'],
             telefono=data['telefono']
@@ -46,9 +58,11 @@ def completar_perfil():
 @artesano_bp.route('/perfil', methods=['GET'])
 @jwt_required()
 def obtener_perfil():
-    current_user = get_jwt_identity()
+    # 1. Obtener el ID (string) y convertirlo a entero
+    user_id = int(get_jwt_identity())
     
-    artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+    # 2. Usar la variable correcta
+    artesano = Artesano.query.filter_by(usuario_id=user_id).first()
     if not artesano:
         return jsonify({'msg': 'Perfil no encontrado'}), 404
     
@@ -58,10 +72,12 @@ def obtener_perfil():
 @jwt_required()
 def actualizar_perfil():
     try:
-        current_user = get_jwt_identity()
+        # 1. Obtener el ID (string) y convertirlo a entero
+        user_id = int(get_jwt_identity())
         data = request.get_json()
         
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        # 2. Usar la variable correcta
+        artesano = Artesano.query.filter_by(usuario_id=user_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
         

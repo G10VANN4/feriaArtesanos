@@ -70,12 +70,24 @@ def login():
         if not user or not user.check_password(data['password']):
             return jsonify({'msg': 'Credenciales inválidas'}), 401
         
-        # Generar token JWT
-        token = create_access_token(identity={
-            'id': user.usuario_id, 
+        # --- ESTA ES LA CORRECCIÓN IMPORTANTE ---
+        
+        # 1. La identidad (Subject) debe ser un string. Usamos el ID.
+        identity_data = str(user.usuario_id)
+        
+        # 2. Los datos extra (email, rol) van en 'additional_claims'
+        additional_data = {
             'email': user.email,
             'rol_id': user.rol_id 
-        })
+        }
+
+        # 3. Generar el token con los datos correctos
+        token = create_access_token(
+            identity=identity_data,
+            additional_claims=additional_data
+        )
+        
+        # --- FIN DE LA CORRECCIÓN ---
         
         return jsonify({
             'access_token': token, 

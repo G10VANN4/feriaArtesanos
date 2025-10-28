@@ -13,7 +13,7 @@ from controllers.solicitud_controller import solicitud_bp
 from controllers.system_controller import system_bp
 from controllers.config_controller import config_bp
 from controllers.admin_controller import admin_bp
-
+from controllers.notificacion_controller import notificacion_bp
 
 load_dotenv()
 
@@ -35,6 +35,7 @@ app.register_blueprint(artesano_bp)
 app.register_blueprint(solicitud_bp)
 app.register_blueprint(config_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(notificacion_bp)
 
 if __name__ == '__main__':
     print("=" * 70)
@@ -51,4 +52,5 @@ if __name__ == '__main__':
     print("http://localhost:5000/solicitudes")
     print("http://localhost:5000/config/rubros")
     print("=" * 70)
+    print("http://localhost:5000/notificaciones (NUEVO)")
     app.run(debug=True, port=5000)
