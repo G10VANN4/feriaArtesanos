@@ -1,0 +1,349 @@
+// src/pages/GestionUsuarios.jsx
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import Navbar from "../components/Navbar";
+import axios from "axios";
+
+
+
+const GestionUsuarios = () => {
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  // Estados para el formulario de creación
+  const [formData, setFormData] = useState({
+    nombre: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    rol_id: ""
+  });
+  
+  // Estados para la lista de usuarios
+  const [usuarios, setUsuarios] = useState([]);
+  const [filtroRol, setFiltroRol] = useState("todos");
+  const [busqueda, setBusqueda] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Verificar permisos
+  useEffect(() => {
+    if (!isAuthenticated || user?.rol_id !== 3) {
+      navigate("/");
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Cargar usuarios al montar el componente
+  useEffect(() => {
+    if (isAuthenticated && user?.rol_id === 3) {
+      cargarUsuarios();
+    }
+  }, [isAuthenticated, user]);
+
+  // Función para cargar usuarios
+  const cargarUsuarios = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("http://localhost:5000/api/usuarios/buscar/rol?rol_id=2");
+      const organizadoresResponse = await axios.get("http://localhost:5000/api/usuarios/buscar/rol?rol_id=3");
+      
+      const todosUsuarios = [...response.data.usuarios, ...organizadoresResponse.data.usuarios];
+      setUsuarios(todosUsuarios);
+    } catch (error) {
+      console.error("Error cargando usuarios:", error);
+      setError("Error al cargar los usuarios");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para crear usuario
+  const crearUsuario = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    // Validaciones
+    if (formData.password !== formData.confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const usuarioData = {
+        nombre: formData.nombre,
+        email: formData.email,
+        password: formData.password,
+        rol_id: parseInt(formData.rol_id),
+        creado_por: 9 //ACOMODAR
+      };
+
+      await axios.post("http://localhost:5000/api/usuarios/crear", usuarioData);
+      
+      setSuccess("Usuario creado exitosamente");
+      setFormData({
+        nombre: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        rol_id: ""
+      });
+      
+      // Recargar la lista de usuarios
+      cargarUsuarios();
+    } catch (error) {
+      console.error("Error creando usuario:", error);
+      setError(error.response?.data?.error || "Error al crear el usuario");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para eliminar usuario
+  const eliminarUsuario = async (usuarioId) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
+      return;
+    }
+
+    try {
+      await axios.delete(`http://localhost:5000/api/usuarios/eliminar/${usuarioId}`);
+      setSuccess("Usuario eliminado exitosamente");
+      cargarUsuarios();
+    } catch (error) {
+      console.error("Error eliminando usuario:", error);
+      setError(error.response?.data?.error || "Error al eliminar el usuario");
+    }
+  };
+
+  // Función para buscar por nombre
+  const buscarPorNombre = async () => {
+    if (!busqueda.trim()) {
+      cargarUsuarios();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:5000/api/usuarios/buscar/nombre?nombre=${busqueda}`);
+      setUsuarios(response.data.usuarios);
+    } catch (error) {
+      console.error("Error buscando usuarios:", error);
+      setError("Error al buscar usuarios");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filtrar usuarios por rol
+  const usuariosFiltrados = usuarios.filter(usuario => {
+    if (filtroRol === "todos") return true;
+    if (filtroRol === "administradores") return usuario.rol_id === 2;
+    if (filtroRol === "organizadores") return usuario.rol_id === 3;
+    return true;
+  });
+
+  if (!isAuthenticated || user?.rol_id !== 3) {
+    return null;
+  }
+
+  return (
+    <div className="gestion-usuarios-container">
+      <Navbar />
+      
+      <div className="gestion-usuarios-content">
+        <div className="gestion-header">
+          <h1>Gestión de Usuarios</h1>
+        </div>
+
+        {/* Mensajes de éxito y error */}
+        {error && <div className="alert alert-error">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
+
+        {/* Formulario de creación */}
+        <div className="crear-usuario-section">
+          <h2>Agregar Nuevo Usuario</h2>
+          <form onSubmit={crearUsuario} className="usuario-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Nombre del usuario</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ingrese nombre..."
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Rol</label>
+                <select
+                  className="form-input"
+                  value={formData.rol_id}
+                  onChange={(e) => setFormData({...formData, rol_id: e.target.value})}
+                  required
+                >
+                  <option value="">Seleccione rol...</option>
+                  <option value="2">Administrador</option>
+                  <option value="3">Organizador</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="Ingrese email..."
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                required
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Contraseña</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="Ingrese contraseña..."
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Repetir contraseña</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="Confirmar contraseña..."
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              className="btn-primary crear-usuario-btn"
+              disabled={loading}
+            >
+              {loading ? "Creando..." : "Crear Usuario"}
+            </button>
+          </form>
+        </div>
+
+        {/* Listado de usuarios */}
+        <div className="listado-usuarios-section">
+          <div className="listado-header">
+            <h2>Listado de Usuarios</h2>
+            
+            <div className="filtros-container">
+              <div className="filtro-rol">
+                <button 
+                  className={`filtro-btn ${filtroRol === "todos" ? "active" : ""}`}
+                  onClick={() => setFiltroRol("todos")}
+                >
+                  Todos
+                </button>
+                <button 
+                  className={`filtro-btn ${filtroRol === "administradores" ? "active" : ""}`}
+                  onClick={() => setFiltroRol("administradores")}
+                >
+                  Administradores
+                </button>
+                <button 
+                  className={`filtro-btn ${filtroRol === "organizadores" ? "active" : ""}`}
+                  onClick={() => setFiltroRol("organizadores")}
+                >
+                  Organizadores
+                </button>
+              </div>
+              
+              <div className="busqueda-container">
+                <input
+                  type="text"
+                  className="busqueda-input"
+                  placeholder="Buscar por nombre..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+                <button 
+                  className="btn-buscar"
+                  onClick={buscarPorNombre}
+                >
+                  Buscar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="loading">Cargando usuarios...</div>
+          ) : (
+            <div className="usuarios-table-container">
+              <table className="usuarios-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>USUARIO</th>
+                    <th>ROL</th>
+                    <th>ELIMINAR</th>
+                  </tr>
+                </thead>
+                    <tbody>
+                    {usuariosFiltrados.map(usuario => (
+                        <tr key={usuario.usuario_id}>
+                        <td>{usuario.usuario_id}</td>
+                        <td>
+                            <div className="usuario-info">
+                            <div className="usuario-nombre">{usuario.nombre}</div>
+                            <div className="usuario-email">{usuario.email}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <span className={`rol-badge ${usuario.rol_id === 2 ? "admin" : "organizador"}`}>
+                            {usuario.rol_id === 2 ? "Administrador" : "Organizador"}
+                            </span>
+                        </td>
+                        <td>
+                            <button 
+                            className="btn-eliminar"
+                            onClick={() => eliminarUsuario(usuario.usuario_id)}
+                            title="Eliminar usuario"
+                            >
+                            Eliminar
+                            </button>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+              </table>
+              
+              {usuariosFiltrados.length === 0 && (
+                <div className="no-usuarios">
+                  No se encontraron usuarios
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GestionUsuarios;
