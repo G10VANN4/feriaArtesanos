@@ -167,7 +167,7 @@ def obtener_solicitud_artesano():
         'solicitud': solicitud_data  
     }), 200
 
-
+"""
 @solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['POST'])
 @jwt_required()
 def cancelar_solicitud(solicitud_id):
@@ -193,7 +193,6 @@ def cancelar_solicitud(solicitud_id):
         
         estado_cancelada = EstadoSolicitud.query.filter_by(nombre='Cancelada').first()
         solicitud.estado_solicitud_id = estado_cancelada.estado_solicitud_id
-        solicitud.fecha_cancelacion = datetime.utcnow()
         
         db.session.commit()
         
@@ -203,7 +202,7 @@ def cancelar_solicitud(solicitud_id):
         db.session.rollback()
         return jsonify({'msg': 'Error al cancelar solicitud', 'error': str(e)}), 500
     
-
+"""
 
 @solicitud_bp.route('/<int:solicitud_id>/fotos', methods=['POST'])
 @jwt_required()

@@ -20,7 +20,7 @@ class Solicitud(db.Model):
     fecha_gestion = db.Column(db.DateTime)
     comentarios_admin = db.Column(db.Text)
     terminos_aceptados = db.Column(db.Boolean, nullable=False, default=False)
-    fecha_cancelacion = db.Column(db.DateTime)
+    #fecha_cancelacion = db.Column(db.DateTime)
     
     artesano_rel = relationship("Artesano", backref="solicitudes_enviadas")
     rubro_rel = relationship("Rubro", backref="solicitudes_por_rubro")

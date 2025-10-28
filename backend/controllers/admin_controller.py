@@ -101,10 +101,11 @@ class AdminController:
             solicitud.administrador_id = administrador_id 
             solicitud.fecha_gestion = datetime.utcnow()
             
-            if estado_nombre_nuevo in ['Rechazada', 'Cancelada']:
-                solicitud.fecha_cancelacion = datetime.utcnow()
-            elif solicitud.fecha_cancelacion is not None:
-                solicitud.fecha_cancelacion = None
+
+           # if estado_nombre_nuevo in ['Rechazada', 'Cancelada']:
+            #    solicitud.fecha_cancelacion = datetime.utcnow()
+           # elif solicitud.fecha_cancelacion is not None:
+            #    solicitud.fecha_cancelacion = None
 
             db.session.commit()
             return {'msg': f'Estado de la solicitud {solicitud_id} actualizado a {estado_nombre_nuevo}'}, 200
@@ -132,7 +133,7 @@ class AdminController:
             solicitud.estado_solicitud_id = estado_cancelada.estado_solicitud_id
             solicitud.administrador_id = administrador_id
             solicitud.fecha_gestion = datetime.utcnow()
-            solicitud.fecha_cancelacion = datetime.utcnow()
+          #  solicitud.fecha_cancelacion = datetime.utcnow()
             solicitud.comentarios_admin = (solicitud.comentarios_admin or "") + f"\n[AUDITORÍA] Cancelada por Admin/Organizador (ID: {administrador_id}) el {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
             
             db.session.commit()
