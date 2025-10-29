@@ -180,3 +180,33 @@ def cancelar_solicitud_admin_route(solicitud_id):
         current_user=current_user
     )
     return jsonify(response), status
+
+@admin_bp.route('/<int:solicitud_id>/fotos', methods=['GET'])
+@jwt_required()
+def obtener_fotos_solicitud(solicitud_id):
+    """Obtener todas las fotos de una solicitud"""
+    try:
+        current_user = get_jwt_identity()
+        
+        # Verificar que la solicitud pertenezca al artesano
+        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        if not artesano:
+            return jsonify({'msg': 'Perfil no encontrado'}), 404
+            
+        solicitud = Solicitud.query.filter_by(
+            solicitud_id=solicitud_id, 
+            artesano_id=artesano.artesano_id
+        ).first()
+        
+        if not solicitud:
+            return jsonify({'msg': 'Solicitud no encontrada'}), 404
+        
+        fotos = SolicitudFoto.query.filter_by(solicitud_id=solicitud_id).all()
+        
+        return jsonify({
+            'fotos': [foto.to_dict() for foto in fotos]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'msg': 'Error al obtener fotos', 'error': str(e)}), 500
+    
