@@ -21,6 +21,7 @@ const Formulario = () => {
   });
 
   const [imagenes, setImagenes] = useState([]);
+  const [imagenesPreviews, setImagenesPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,53 +33,137 @@ const Formulario = () => {
     });
   };
 
+  // Función para convertir archivos a base64
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+const handleImageChange = async (e) => {
+  const files = Array.from(e.target.files);
+
+  if (files.length === 0) return;
+
+  // Limitar a máximo 5 archivos
+  if (files.length > 5) {
+    setError("¡Máximo 5 imágenes permitidas! Se eliminarán las extras.");
+    files.splice(5); // eliminar todo lo que sobre del array
+  } else {
+    setError("");
+  }
+
+  // Validar tamaño de archivos (máx 2MB)
+  const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
+  if (oversizedFiles.length > 0) {
+    setError("Algunas imágenes son demasiado grandes (máx 2MB cada una)");
+    files = files.filter(file => file.size <= 2 * 1024 * 1024);
+  }
+
+  try {
+    const base64Promises = files.map(file => convertToBase64(file));
+    const base64Images = await Promise.all(base64Promises);
+
+    // Previews
+    const previews = base64Images.map(img => ({
+      src: img,
+      name: `imagen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    setImagenes(base64Images);        // array real de base64
+    setImagenesPreviews(previews);
+  } catch (error) {
+    console.error("Error procesando imágenes:", error);
+    setError("Error al procesar las imágenes");
+  }
+};
+
+
+
+  const removeImage = (index) => {
+    const newImagenes = [...imagenes];
+    const newPreviews = [...imagenesPreviews];
+    
+    newImagenes.splice(index, 1);
+    newPreviews.splice(index, 1);
+    
+    setImagenes(newImagenes);
+    setImagenesPreviews(newPreviews);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
+    // Validaciones
+    if (!formData.terminos_aceptados) {
+      setError("Debe aceptar los términos y condiciones");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.dimensiones_ancho <= 0 || formData.dimensiones_largo <= 0) {
+      setError("Las dimensiones deben ser mayores a 0");
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Usuario no autenticado");
 
-      // Completar perfil del artesano
-      await axios.post(
-        "/artesano/perfil",
-        {
-          nombre: formData.nombre,
-          dni: formData.dni,
-          telefono: formData.telefono,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const solicitudData = {
+        nombre: formData.nombre,
+        dni: formData.dni,
+        telefono: formData.telefono,
+        descripcion: formData.descripcion,
+        dimensiones_ancho: parseFloat(formData.dimensiones_ancho),
+        dimensiones_largo: parseFloat(formData.dimensiones_largo),
+        rubro_id: parseInt(formData.rubro_id),
+        terminos_aceptados: formData.terminos_aceptados,
+        fotos: imagenes // Imágenes en base64
+      };
 
-      // Crear solicitud
-      const formPayload = new FormData();
-      formPayload.append("descripcion", formData.descripcion);
-      formPayload.append("dimensiones_ancho", formData.dimensiones_ancho);
-      formPayload.append("dimensiones_largo", formData.dimensiones_largo);
-      formPayload.append("rubro_id", formData.rubro_id);
-      formPayload.append("terminos_aceptados", formData.terminos_aceptados);
+      console.log("Enviando solicitud con imágenes:", {
+        ...solicitudData,
+        fotos: [`${imagenes.length} imágenes`] 
+      });
 
-      // Agregar imágenes si las hay
-      imagenes.forEach((img) => formPayload.append("imagenes", img));
-
-      const response = await axios.post("/solicitudes", formPayload, {
+      const response = await axios.post("/solicitudes", solicitudData, {
         headers: {
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (response.status === 201) {
-        navigate("/"); // Redirige al home al completar
-      } else {
-        setError("Error al enviar la solicitud");
+        alert(" Solicitud enviada exitosamente");
+        // Limpiar formulario
+        setFormData({
+          nombre: "",
+          dni: "",
+          telefono: "",
+          descripcion: "",
+          dimensiones_ancho: "",
+          dimensiones_largo: "",
+          rubro_id: "",
+          terminos_aceptados: false,
+        });
+        setImagenes([]);
+        setImagenesPreviews([]);
+        navigate("/");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error completo:", err);
       setError(
-        err.response?.data?.msg || err.message || "Error interno del sistema"
+        err.response?.data?.msg || 
+        err.response?.data?.error || 
+        err.message || 
+        "Error interno del sistema"
       );
     } finally {
       setLoading(false);
@@ -105,6 +190,7 @@ const Formulario = () => {
                 onChange={handleChange}
                 placeholder="Ej: Juan Pérez"
                 required
+                maxLength="20"
                 className="form-input"
               />
             </div>
@@ -117,7 +203,9 @@ const Formulario = () => {
                 name="dni"
                 value={formData.dni}
                 onChange={handleChange}
+                placeholder="Ej: 12345678"
                 required
+                max="99999999"
                 className="form-input"
               />
             </div>
@@ -132,6 +220,7 @@ const Formulario = () => {
                 onChange={handleChange}
                 placeholder="Ej: 11 5555-5555"
                 required
+                maxLength="20"
                 className="form-input"
               />
             </div>
@@ -143,9 +232,10 @@ const Formulario = () => {
                 name="descripcion"
                 value={formData.descripcion}
                 onChange={handleChange}
-                placeholder="Describe qué vendes, etc."
+                placeholder="Describe qué vendes, materiales que utilizas, etc."
                 required
                 className="form-input"
+                rows="4"
               />
             </div>
 
@@ -156,14 +246,41 @@ const Formulario = () => {
                 type="file"
                 multiple
                 accept="image/*"
-                onChange={(e) => setImagenes(Array.from(e.target.files))}
+                onChange={handleImageChange}
                 className="form-input"
               />
+              <small className="file-info">
+                Máximo 5 imágenes, 2MB cada una. Formatos: JPG, PNG, GIF.
+              </small>
+              <small className="file-info">
+                Si ingresa mas solo se guardaran las primeras 5.
+              </small>
+              {/* Preview de imágenes */}
+              {imagenesPreviews.length > 0 && (
+                <div className="image-previews">
+                  <h4>Imágenes seleccionadas ({imagenesPreviews.length}/5):</h4>
+                  <div className="preview-container">
+                    {imagenesPreviews.map((preview, index) => (
+                      <div key={index} className="image-preview">
+                        <img src={preview.src} alt={`Preview ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="remove-image-btn"
+                          onClick={() => removeImage(index)}
+                          title="Eliminar imagen"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Dimensiones */}
             <div className="form-group dimensiones-container">
-              <label className="form-label">Dimensiones del puesto (m):</label>
+              <label className="form-label">Dimensiones del puesto (metros):</label>
               <div className="dimensiones-inputs">
                 <input
                   type="number"
@@ -171,7 +288,7 @@ const Formulario = () => {
                   value={formData.dimensiones_ancho}
                   onChange={handleChange}
                   placeholder="Ancho"
-                  min="0"
+                  min="0.1"
                   step="0.1"
                   required
                   className="form-input"
@@ -183,11 +300,12 @@ const Formulario = () => {
                   value={formData.dimensiones_largo}
                   onChange={handleChange}
                   placeholder="Largo"
-                  min="0"
+                  min="0.1"
                   step="0.1"
                   required
                   className="form-input"
                 />
+                <span className="dimensiones-unidad">m</span>
               </div>
             </div>
 
@@ -220,7 +338,7 @@ const Formulario = () => {
                 />
                 <span className="checkbox-label">
                   Acepto los{" "}
-                  <a href="/terminos" target="_blank">
+                  <a href="/terminos" target="_blank" rel="noopener noreferrer">
                     términos y condiciones
                   </a>
                 </span>

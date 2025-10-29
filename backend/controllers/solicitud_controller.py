@@ -1,4 +1,4 @@
-# controllers/solicitud_controller.py - CORREGIDO
+# controllers/solicitud_controller.py - CORREGIDO Y MEJORADO
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.base import db
@@ -16,45 +16,63 @@ solicitud_bp = Blueprint('solicitud_bp', __name__, url_prefix='/solicitudes')
 @jwt_required()
 def crear_solicitud():
     """
-    ENDPOINT UNIFICADO: Crea perfil Y solicitud en una sola operación
+    ENDPOINT UNIFICADO:
+    Crea perfil y solicitud en una sola operación
+    con control de duplicados y validaciones de negocio.
     """
+    from traceback import format_exc
+
     try:
         current_user = get_jwt_identity()
-        data = request.get_json()
+        data = request.get_json() or {}
+
+        print("DEBUG - Usuario autenticado:", current_user)
+        print("DEBUG - Datos recibidos:", {k: (v if k != 'fotos' else f"{len(v)} imágenes") for k, v in data.items()})
+
+        # Validación de usuario
+        if not isinstance(current_user, dict) or 'rol_id' not in current_user:
+            return jsonify({'msg': 'Error de autenticación: el token no contiene información de rol.', 'error': str(current_user)}), 401
         
-        # Verificar que sea artesano
         if current_user['rol_id'] != 1:
             return jsonify({'msg': 'Solo artesanos pueden crear solicitudes'}), 403
-        
-        
-        campos_requeridos_perfil = ['nombre', 'telefono', 'dni']
-        for campo in campos_requeridos_perfil:
-            if campo not in data:
-                return jsonify({'msg': f'Campo de perfil {campo} es requerido'}), 400
-        
-        # Validar longitudes de los modelo
-        if len(data['dni']) > 8:
+
+        # Validaciones de perfil
+        campos_perfil = ['nombre', 'telefono', 'dni']
+        for campo in campos_perfil:
+            if not data.get(campo):
+                return jsonify({'msg': f'Campo de perfil "{campo}" es requerido'}), 400
+
+        if len(str(data['dni'])) > 8:
             return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
         if len(data['nombre']) > 20:
             return jsonify({'msg': 'El nombre no puede tener más de 20 caracteres'}), 400
         if len(data['telefono']) > 20:
             return jsonify({'msg': 'El teléfono no puede tener más de 20 caracteres'}), 400
-        
-        # Verificar el DNI
-        artesano_existente = Artesano.query.filter_by(dni=data['dni']).first()
-        if artesano_existente:
+
+        # Verificar artesano existente por DNI
+        if Artesano.query.filter_by(dni=data['dni']).first():
             return jsonify({'msg': 'El DNI ya está registrado'}), 400
-        
-        # Campos olbigatorios
-        campos_requeridos_solicitud = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id', 'terminos_aceptados']
-        for campo in campos_requeridos_solicitud:
-            if campo not in data:
-                return jsonify({'msg': f'Campo de solicitud {campo} es requerido'}), 400
-        
+
+        # Verificar si ya existe un artesano asociado a este usuario
+        if Artesano.query.filter_by(usuario_id=current_user['id']).first():
+            return jsonify({'msg': 'Ya existe un perfil de artesano asociado a este usuario'}), 400
+
+        # Validaciones de solicitud
+        campos_solicitud = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id', 'terminos_aceptados']
+        for campo in campos_solicitud:
+            if data.get(campo) in [None, ""]:
+                return jsonify({'msg': f'Campo de solicitud "{campo}" es requerido'}), 400
+
         if not data['terminos_aceptados']:
             return jsonify({'msg': 'Debe aceptar los términos y condiciones'}), 400
-        
-        # Perfil usuario
+
+        try:
+            ancho = float(str(data['dimensiones_ancho']).replace(',', '.'))
+            largo = float(str(data['dimensiones_largo']).replace(',', '.'))
+        except ValueError:
+            return jsonify({'msg': 'Las dimensiones deben ser valores numéricos válidos'}), 400
+
+        # Crear artesano
         artesano = Artesano(
             usuario_id=current_user['id'],
             nombre=data['nombre'],
@@ -63,21 +81,23 @@ def crear_solicitud():
         )
         db.session.add(artesano)
         db.session.flush()
-        
-        # Info del puestp
+
+        # Verificar rubro
         rubro = Rubro.query.get(data['rubro_id'])
         if not rubro:
+            db.session.rollback()
             return jsonify({'msg': 'Rubro no válido'}), 400
-        
-        # Calcular parcelas necesarias
-        ancho = float(data['dimensiones_ancho'])
-        largo = float(data['dimensiones_largo'])
+
+        # Calcular parcelas y costo
         parcelas_necesarias = max(1, round((ancho / 3.0) * (largo / 3.0)))
         costo_total = parcelas_necesarias * float(rubro.precio_parcela)
-        
-        # Estado inicial pendiente 
+
+        # Estado inicial pendiente
         estado_pendiente = EstadoSolicitud.query.filter_by(nombre='Pendiente').first()
-        
+        if not estado_pendiente:
+            db.session.rollback()
+            return jsonify({'msg': 'El estado "Pendiente" no está configurado en la base de datos'}), 500
+
         # Crear solicitud
         nueva_solicitud = Solicitud(
             artesano_id=artesano.artesano_id,
@@ -91,40 +111,53 @@ def crear_solicitud():
             terminos_aceptados=True,
             fecha_solicitud=datetime.utcnow()
         )
-        
         db.session.add(nueva_solicitud)
         db.session.flush()
-        
-        # fotos del puesto
+
+        # Validar fotos (máximo 5)
         fotos_urls = data.get('fotos', [])
-        fotos_creadas = []  
-        
+        if len(fotos_urls) > 5:
+            db.session.rollback()
+            return jsonify({'msg': 'No se pueden subir más de 5 fotos por solicitud'}), 400
+
+        fotos_creadas = []
         for url_foto in fotos_urls:
+            if not isinstance(url_foto, str):
+                continue
+            if len(url_foto) > 5000000:
+                print("DEBUG - Imagen ignorada por tamaño >5MB")
+                continue
             nueva_foto = SolicitudFoto(
                 solicitud_id=nueva_solicitud.solicitud_id,
                 url_foto=url_foto
             )
             db.session.add(nueva_foto)
             fotos_creadas.append(nueva_foto)
-        
+
         db.session.commit()
 
-        # notificación si supera dimensiones estándar
+        # Mensaje informativo
         mensaje_notificacion = ""
         if parcelas_necesarias > 1:
-            mensaje_notificacion = f"Su puesto requiere {parcelas_necesarias} parcelas. Costo total: ${costo_total}"
+            mensaje_notificacion = f"Su puesto requiere {parcelas_necesarias} parcelas. Costo total: ${costo_total:.2f}"
 
+        # Respuesta final al front
         return jsonify({
             'msg': 'Solicitud creada exitosamente',
-            'perfil_artesano': artesano.to_dict(),
-            'solicitud': nueva_solicitud.to_dict(),
-            'fotos': [f.to_dict() for f in fotos_creadas],
+            'perfil_artesano': getattr(artesano, "to_dict", lambda: {} )(),
+            'solicitud': getattr(nueva_solicitud, "to_dict", lambda: {} )(),
+            'fotos': [getattr(f, "to_dict", lambda: {} )() for f in fotos_creadas],
             'notificacion': mensaje_notificacion
         }), 201
-        
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({'msg': 'Error al crear solicitud', 'error': str(e)}), 500
+        print("ERROR EN crear_solicitud():", str(e))
+        print(format_exc())
+        return jsonify({'msg': 'Error interno al crear solicitud', 'error': str(e)}), 500
+
+
+
 
 
 # Obtener la SOLICITUD del artesano 
