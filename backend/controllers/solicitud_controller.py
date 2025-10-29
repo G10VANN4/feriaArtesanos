@@ -89,8 +89,17 @@ def crear_solicitud():
             return jsonify({'msg': 'Rubro no válido'}), 400
 
         # Calcular parcelas y costo
-        parcelas_necesarias = max(1, round((ancho / 3.0) * (largo / 3.0)))
+        parcelas_largo = int(largo / 3)
+        if largo % 3 != 0:
+            parcelas_largo += 1
+
+        parcelas_ancho = int(ancho / 3)
+        if ancho % 3 != 0:
+            parcelas_ancho += 1
+
+        parcelas_necesarias = parcelas_largo * parcelas_ancho
         costo_total = parcelas_necesarias * float(rubro.precio_parcela)
+
 
         # Estado inicial pendiente
         estado_pendiente = EstadoSolicitud.query.filter_by(nombre='Pendiente').first()
