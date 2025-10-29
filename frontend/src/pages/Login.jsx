@@ -5,7 +5,7 @@ import { FaSignInAlt } from "react-icons/fa";
 import "../styles/App.css";
 
 const Login = () => {
-  const { login, isAuthenticated, user,logout } = useAuth();
+  const { login, isAuthenticated, user, logout } = useAuth();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,16 +24,21 @@ const Login = () => {
 
     try {
       const result = await login(email, password);
-      
+
       if (result.success) {
         localStorage.setItem('access_token', result.token);
         localStorage.setItem('user_role', result.role || 'admin');
         navigate('/dashboard');
-        
         setError("¡Inicio de sesión exitoso! Puedes continuar navegando.");
-
         setFormData({ email: "", password: "" });
+
       
+
+
+        navigate("/", {
+          replace: true,
+        });
+
       } else {
         setError(result.message || "Error al iniciar sesión");
       }
@@ -53,24 +58,38 @@ const Login = () => {
             <FaSignInAlt className="login-icon" />
             Ya estás autenticado
           </h2>
-          <p style={{ textAlign: 'center', color: '#5C4033', marginBottom: '1rem' }}>
+          <p
+            style={{
+              textAlign: "center",
+              color: "#5C4033",
+              marginBottom: "1rem",
+            }}
+          >
             Has iniciado sesión como: <strong>{user?.email}</strong>
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            <button 
-              onClick={() => navigate("/")} 
-              className="login-button"
-            >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+              marginTop: "1rem",
+            }}
+          >
+            <button onClick={() => navigate("/")} className="login-button">
               Volver al Inicio
             </button>
-            
-            <button 
+
+            <button
               onClick={() => {
                 logout();
                 navigate("/");
-              }} 
+              }}
               className="registro-button"
-              style={{ backgroundColor: 'transparent', color: '#A0522D', border: '2px solid #A0522D' }}
+              style={{
+                backgroundColor: "transparent",
+                color: "#A0522D",
+                border: "2px solid #A0522D",
+              }}
             >
               Cerrar sesión
             </button>
@@ -87,12 +106,8 @@ const Login = () => {
           <FaSignInAlt className="login-icon" />
           Iniciar Sesión
         </h2>
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-        
+        {error && <div className="error-message">{error}</div>}
+
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label className="form-label">Email:</label>
@@ -120,15 +135,11 @@ const Login = () => {
               className="form-input"
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="login-button"
-          >
+          <button type="submit" disabled={loading} className="login-button">
             {loading ? "Iniciando sesión..." : "Entrar"}
           </button>
         </form>
-        
+
         {/* Enlace para registrarse */}
         <p className="login-link">
           ¿No tienes cuenta?{" "}
