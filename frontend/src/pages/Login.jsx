@@ -26,10 +26,14 @@ const Login = () => {
       const result = await login(email, password);
       
       if (result.success) {
-
+        localStorage.setItem('access_token', result.token);
+        localStorage.setItem('user_role', result.role || 'admin');
+        navigate('/dashboard');
+        
         setError("¡Inicio de sesión exitoso! Puedes continuar navegando.");
 
         setFormData({ email: "", password: "" });
+      
       } else {
         setError(result.message || "Error al iniciar sesión");
       }

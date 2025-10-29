@@ -5,6 +5,7 @@ import { AuthProvider } from './hooks/useAuth.jsx'; // ← Importar desde hooks
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Registro from './pages/Registro';
+import AdminDashboard from './pages/AdminDashboard';
 import './styles/App.css';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Registro />} />
+            <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
