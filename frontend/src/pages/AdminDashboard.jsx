@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { FiEdit3, FiEye, FiTrash2, FiCheckCircle, FiXCircle, FiClock, FiAlertTriangle, FiSearch } from "react-icons/fi";
 import axios from "axios";
 import "../styles/App.css";
+import Navbar from "../components/Navbar";
 
 const API_BASE_URL = "http://localhost:5000/api/v1"; 
 
@@ -336,3 +337,5 @@ const AdminDashboard = ({ history }) => {
 };
 
 export default AdminDashboard;
+
+
