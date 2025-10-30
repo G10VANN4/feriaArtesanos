@@ -86,7 +86,7 @@ const GestionUsuarios = () => {
         email: formData.email,
         password: formData.password,
         rol_id: parseInt(formData.rol_id),
-        creado_por: user?.usuario_id || 9 // Usar el ID del usuario logueado
+        creado_por: user?.usuario_id || 2 // Usar el ID del usuario logueado
       };
 
       await axios.post("http://localhost:5000/api/usuarios/crear", usuarioData);
