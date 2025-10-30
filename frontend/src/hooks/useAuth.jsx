@@ -59,7 +59,13 @@ export const AuthProvider = ({ children }) => {
         rol_id: result.rol_id 
       });
 
-      return { success: true, data: result };
+      //  DEVUELVE el rol_id para usarlo en el Login component
+      return { 
+        success: true, 
+        token: result.access_token,
+        rol_id: result.rol_id,  // ← Esto es crucial
+        email: email 
+      };
     } catch (error) {
       return {
         success: false,
