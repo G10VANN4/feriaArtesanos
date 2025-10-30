@@ -42,7 +42,7 @@ def register():
             return jsonify({
                 'msg': 'Registro inicial exitoso. Debe completar su perfil.',
                 'usuario_id': new_user.usuario_id,
-                'next_step': '/perfil/completar'
+
             }), 201
 
         except Exception as e:
