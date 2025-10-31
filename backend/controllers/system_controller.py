@@ -5,12 +5,12 @@ from models.base import db
 from models.administrador import Administrador
 from models.artesano import Artesano
 from models.color import Color
-from models.configuracion_grid import ConfiguracionGrid
+from feriaArtesanos.backend.models.mapa import ConfiguracionGrid
 from models.estado_notificacion import EstadoNotificacion
 from models.estado_pago import EstadoPago
 from models.estado_solicitud import EstadoSolicitud
 from models.estado_usuario import EstadoUsuario
-from models.grid_cuadrado import GridCuadrado
+from feriaArtesanos.backend.models.Tipo_parcela import GridCuadrado
 from models.historial_participacion import HistorialParticipacion
 from models.limite_rubro import LimiteRubro
 from models.notificacion import Notificacion

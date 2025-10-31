@@ -5,20 +5,26 @@ class Parcela(db.Model):
     
     parcela_id = db.Column(db.Integer, primary_key=True)
     rubro_id = db.Column(db.Integer, db.ForeignKey('Rubro.rubro_id'), nullable=False)
-    numero_parcela = db.Column(db.String(20), nullable=False, unique=True)
-    ancho = db.Column(db.Numeric(8, 2), nullable=False)
-    largo = db.Column(db.Numeric(8, 2), nullable=False)
-    disponible = db.Column(db.Boolean, default=True)
+    mapa_id = db.Column(db.Integer, db.ForeignKey('Mapa.mapa_id'), nullable=False)
+    tipo_parcela_id = db.Column(db.Integer, db.ForeignKey('Tipo_parcela.tipo_parcela_id'), nullable=False)
+
+    fila = db.Column(db.Integer, nullable=False)
+    columna = db.Column(db.Integer, nullable=False)
+    habilitada = db.Column(db.Boolean, default=True)
 
     def to_dict(self):
         return {
             'parcela_id': self.parcela_id,
             'rubro_id': self.rubro_id,
-            'numero_parcela': self.numero_parcela,
-            'ancho': float(self.ancho),
-            'largo': float(self.largo),
-            'disponible': self.disponible
+            'mapa_id': self.mapa_id,
+            'tipo_parcela_id': self.tipo_parcela_id,
+            'fila': self.fila,
+            'columna': self.columna,
+            'habilitada': self.habilitada
         }
-    
-    def __repr__(self):
-        return f'<Parcela {self.numero_parcela}>'
+
+    def cambiar_estado_parcela(self, estado: bool):
+        self.habilitada = estado
+
+    def verificar_disponibilidad(self):
+        return self.habilitada
