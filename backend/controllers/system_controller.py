@@ -5,19 +5,18 @@ from models.base import db
 from models.administrador import Administrador
 from models.artesano import Artesano
 from models.color import Color
-from feriaArtesanos.backend.models.mapa import ConfiguracionGrid
+from models.mapa import Mapa
 from models.estado_notificacion import EstadoNotificacion
 from models.estado_pago import EstadoPago
 from models.estado_solicitud import EstadoSolicitud
 from models.estado_usuario import EstadoUsuario
-from feriaArtesanos.backend.models.Tipo_parcela import GridCuadrado
+from models.Tipo_parcela import Tipo_parcela
 from models.historial_participacion import HistorialParticipacion
 from models.limite_rubro import LimiteRubro
 from models.notificacion import Notificacion
 from models.organizador import Organizador
 from models.pago import Pago
 from models.parcela import Parcela
-from models.reasignacion_puesto import ReasignacionPuesto
 from models.rol import Rol
 from models.rubro import Rubro
 from models.solicitud import Solicitud
@@ -151,17 +150,6 @@ def init_db():
             print("✅ Rubros insertados")
             datos_insertados = True
 
-        # 8. Configuración inicial del grid (para RF16)
-        if ConfiguracionGrid.query.count() == 0:
-            config_grid = ConfiguracionGrid(
-                ancho_total=100,
-                largo_total=100,
-                medida_cuadrado=3.00
-            )
-            db.session.add(config_grid)
-            print("✅ Configuración grid insertada")
-            datos_insertados = True
-
         # 9. CREAR USUARIOS ADMINISTRADORES 
         admin_creado = False
         
@@ -226,7 +214,6 @@ def init_db():
                 'estados_notificacion': EstadoNotificacion.query.count(),
                 'colores': Color.query.count(),
                 'rubros': Rubro.query.count(),
-                'config_grid': ConfiguracionGrid.query.count(),
                 'usuarios': Usuario.query.count(),
                 'administradores': Administrador.query.count()
             }
