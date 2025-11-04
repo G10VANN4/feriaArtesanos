@@ -1,28 +1,35 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.base import db
 from models.usuario import Usuario
 from models.administrador import Administrador 
 from models.organizador import Organizador
-from passlib.hash import sha256_crypt
+from models.artesano import Artesano
 from datetime import datetime
-from datetime import timedelta
 
 usuarios_bp = Blueprint('usuarios', __name__)
 
+def get_usuario_actual():
+    """Obtiene el usuario actual desde el token JWT"""
+    user_identity = get_jwt_identity()  # "user_123"
+    usuario_id = int(user_identity.split('_')[1])
+    return Usuario.query.get(usuario_id)
+
 @usuarios_bp.route('/crear', methods=['POST'])
+@jwt_required()
 def crear_usuario():
     try:
         data = request.get_json()
 
-        required_fields = ['email', 'password', 'rol_id', 'nombre', 'creado_por']
+        required_fields = ['email', 'password', 'rol_id', 'nombre']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Campo {field} es requerido'}), 400
 
-        #verificar permisos del usuario que crea
-        usuario_creador = Usuario.query.get(data['creado_por'])
+        # Obtener usuario actual desde el token
+        usuario_creador = get_usuario_actual()
         if not usuario_creador:
-            return jsonify({'error': 'Usuario creador no encontrado'}), 404
+            return jsonify({'error': 'Usuario no autenticado'}), 401
         
         # solo Organizadores pueden crear usuarios
         if usuario_creador.rol_id != 3:  
@@ -47,21 +54,21 @@ def crear_usuario():
         nuevo_usuario.set_password(data['password'])
         
         db.session.add(nuevo_usuario)
-        db.session.flush()  #
+        db.session.flush()  # Para obtener el ID sin commit
         
         # Crear el perfil específico según el rol
         if rol_id == 2:  # Administrador
             administrador = Administrador(
                 usuario_id=nuevo_usuario.usuario_id,
                 nombre=data['nombre'],
-                creado_por=data['creado_por']
+                creado_por=usuario_creador.usuario_id
             )
             db.session.add(administrador)
         elif rol_id == 3:  # Organizador
             organizador = Organizador(
                 usuario_id=nuevo_usuario.usuario_id,
                 nombre=data['nombre'],
-                creado_por=data['creado_por']
+                creado_por=usuario_creador.usuario_id
             )
             db.session.add(organizador)
         
@@ -77,6 +84,7 @@ def crear_usuario():
         return jsonify({'error': f'Error al crear usuario: {str(e)}'}), 500
 
 @usuarios_bp.route('/buscar/rol', methods=['GET'])
+@jwt_required()
 def buscar_usuarios_por_rol():
     try:
         rol_id = request.args.get('rol_id')
@@ -120,6 +128,7 @@ def buscar_usuarios_por_rol():
         return jsonify({'error': f'Error al buscar usuarios: {str(e)}'}), 500
 
 @usuarios_bp.route('/buscar/nombre', methods=['GET'])
+@jwt_required()
 def buscar_usuarios_por_nombre():
     """
     Buscar usuarios por nombre (en Administrador u Organizador)
@@ -174,6 +183,7 @@ def buscar_usuarios_por_nombre():
         return jsonify({'error': f'Error al buscar usuarios: {str(e)}'}), 500
 
 @usuarios_bp.route('/editar/<int:usuario_id>', methods=['PUT'])
+@jwt_required()
 def editar_usuario(usuario_id):
     try:
         data = request.get_json()
@@ -220,8 +230,8 @@ def editar_usuario(usuario_id):
         return jsonify({'error': f'Error al actualizar usuario: {str(e)}'}), 500
 
 @usuarios_bp.route('/eliminar/<int:usuario_id>', methods=['DELETE'])
+@jwt_required()
 def eliminar_usuario(usuario_id):
- 
     try:
         usuario = Usuario.query.get(usuario_id)
         if not usuario:
@@ -249,6 +259,7 @@ def eliminar_usuario(usuario_id):
         return jsonify({'error': f'Error al eliminar usuario: {str(e)}'}), 500
 
 @usuarios_bp.route('/<int:usuario_id>', methods=['GET'])
+@jwt_required()
 def obtener_usuario(usuario_id):
     try:
         usuario = Usuario.query.get(usuario_id)
@@ -276,7 +287,6 @@ def obtener_usuario(usuario_id):
                     'activo': org.activo,
                     'fecha_creacion': org.fecha_creacion.isoformat() if org.fecha_creacion else None,
                     'organizador_id': org.organizador_id
-        
                 })
         
         return jsonify(usuario_data), 200

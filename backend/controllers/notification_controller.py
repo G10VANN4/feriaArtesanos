@@ -5,18 +5,24 @@ from models import db
 from models.notificacion import Notificacion
 from models.estado_notificacion import EstadoNotificacion
 from models.artesano import Artesano
+from models.usuario import Usuario
 
 notification_bp = Blueprint('notification', __name__, url_prefix='/api/v1')
 
-class NotificationController:
+def get_usuario_actual():
+    """Obtiene el usuario actual desde el token JWT"""
+    user_identity = get_jwt_identity()  # "user_123"
+    usuario_id = int(user_identity.split('_')[1])
+    return Usuario.query.get(usuario_id)
 
-    @staticmethod
-    def _get_artesano_from_user():
-        """Obtiene el artesano asociado al usuario autenticado"""
-        current_user = get_jwt_identity()
-        if not current_user or 'id' not in current_user:
-            return None
-        return Artesano.query.filter_by(usuario_id=current_user['id']).first()
+def get_artesano_from_user():
+    """Obtiene el artesano asociado al usuario autenticado"""
+    usuario = get_usuario_actual()
+    if not usuario:
+        return None
+    return Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
+
+class NotificationController:
 
     @staticmethod
     @notification_bp.route('/artesano/notificaciones', methods=['GET'])
@@ -26,7 +32,7 @@ class NotificationController:
         Obtener las notificaciones del artesano
         """
         try:
-            artesano = NotificationController._get_artesano_from_user()
+            artesano = get_artesano_from_user()
             if not artesano:
                 return jsonify({'error': 'Artesano no encontrado'}), 404
             
@@ -58,7 +64,7 @@ class NotificationController:
         Marcar una notificación como leída
         """
         try:
-            artesano = NotificationController._get_artesano_from_user()
+            artesano = get_artesano_from_user()
             if not artesano:
                 return jsonify({'error': 'Artesano no encontrado'}), 404
             
@@ -92,7 +98,7 @@ class NotificationController:
         Marcar todas las notificaciones del artesano como leídas
         """
         try:
-            artesano = NotificationController._get_artesano_from_user()
+            artesano = get_artesano_from_user()
             if not artesano:
                 return jsonify({'error': 'Artesano no encontrado'}), 404
             
@@ -109,7 +115,7 @@ class NotificationController:
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
 
-# para cuando admin cambie el estado de la solictud
+    # para cuando admin cambie el estado de la solictud
     @staticmethod
     def crear_notificacion(artesano_id, mensaje, estado_notificacion_id=1):
         """
