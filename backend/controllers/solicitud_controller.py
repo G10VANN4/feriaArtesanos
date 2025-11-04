@@ -6,6 +6,7 @@ from models.artesano import Artesano
 from models.rubro import Rubro
 from models.estado_solicitud import EstadoSolicitud
 from models.solicitud_foto import SolicitudFoto 
+from models.notificacion import Notificacion
 from datetime import datetime
 import re
 import base64
@@ -239,6 +240,70 @@ def obtener_solicitud_artesano():
         },
         'solicitud': solicitud_data
     }), 200
+
+@solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['PUT'])
+@jwt_required()
+def cancelar_solicitud_artesano(solicitud_id):
+    """
+    Cancelar una solicitud (puede ser cancelada en cualquier estado)
+    """
+    try:
+        current_user = get_jwt_identity()
+        
+        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        if not artesano:
+            return jsonify({'error': 'Artesano no encontrado'}), 404
+        
+        # Obtener la solicitud
+        solicitud = Solicitud.query.filter_by(
+            solicitud_id=solicitud_id,
+            artesano_id=artesano.artesano_id
+        ).first()
+        
+        if not solicitud:
+            return jsonify({'error': 'Solicitud no encontrada'}), 404
+        
+        # Verificar que el estado "Cancelada" existe
+        estado_cancelada = EstadoSolicitud.query.filter_by(nombre='Cancelada').first()
+        
+        if not estado_cancelada:
+            return jsonify({'error': 'Estado "Cancelada" no configurado en el sistema'}), 500
+        
+        # Obtener el estado actual para el mensaje
+        estado_actual = EstadoSolicitud.query.get(solicitud.estado_solicitud_id)
+        
+        # Si ya está cancelada, no hacer nada
+        if solicitud.estado_solicitud_id == estado_cancelada.estado_solicitud_id:
+            return jsonify({
+                'message': 'La solicitud ya se encuentra cancelada',
+                'solicitud': solicitud.to_dict()
+            }), 200
+        
+        # Cambiar estado a cancelada
+        solicitud.estado_solicitud_id = estado_cancelada.estado_solicitud_id
+        solicitud.fecha_gestion = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Crear notificación de cancelación
+        notificacion = Notificacion(
+            artesano_id=artesano.artesano_id,
+            mensaje=f'Tu solicitud #{solicitud_id} ha sido cancelada exitosamente. Estado anterior: {estado_actual.nombre}',
+            estado_notificacion_id=1,  # Asumiendo que 1 es "Enviado"
+            leido=False
+        )
+        db.session.add(notificacion)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Solicitud cancelada exitosamente',
+            'solicitud': solicitud.to_dict(),
+            'estado_anterior': estado_actual.nombre
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @solicitud_bp.route('/<int:solicitud_id>/fotos', methods=['POST'])
 @jwt_required()

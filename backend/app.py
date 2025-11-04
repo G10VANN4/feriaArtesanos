@@ -14,7 +14,7 @@ from controllers.system_controller import system_bp
 from controllers.config_controller import config_bp
 from controllers.admin_controller import admin_bp
 from controllers.usuarios_controller import usuarios_bp
-
+from controllers.notification_controller import notification_bp
 load_dotenv()
 
 app = Flask(__name__)
@@ -36,7 +36,7 @@ app.register_blueprint(solicitud_bp)
 app.register_blueprint(config_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(usuarios_bp, url_prefix='/api/usuarios')
-
+app.register_blueprint(notification_bp)
 
 if __name__ == '__main__':
     print("=" * 70)
