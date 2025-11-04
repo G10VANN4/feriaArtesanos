@@ -7,6 +7,7 @@ from models.rubro import Rubro
 from models.estado_solicitud import EstadoSolicitud
 from models.solicitud_foto import SolicitudFoto 
 from models.notificacion import Notificacion
+from models.usuario import Usuario
 from datetime import datetime
 import re
 import base64
@@ -26,25 +27,29 @@ def validar_base64(base64_string):
     except Exception:
         return False
 
+def get_usuario_actual():
+    """Obtiene el usuario actual desde el token JWT"""
+    user_identity = get_jwt_identity()  # "user_123"
+    usuario_id = int(user_identity.split('_')[1])
+    return Usuario.query.get(usuario_id)
+
 @solicitud_bp.route('', methods=['POST'])
 @jwt_required()
 def crear_solicitud():
-
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
         
         # Cambiar de request.get_json() a request.form para FormData
         data = request.form
         fotos_files = request.files.getlist('fotos')  # Obtener archivos
 
-        print("DEBUG - Usuario autenticado:", current_user)
+        print("DEBUG - Usuario autenticado:", usuario.usuario_id)
         print("DEBUG - Datos recibidos:", dict(data))
         print("DEBUG - Archivos recibidos:", len(fotos_files))
 
-        if not isinstance(current_user, dict) or 'rol_id' not in current_user:
-            return jsonify({'msg': 'Error de autenticación'}), 401
-        
-        if current_user['rol_id'] != 1:
+        if usuario.rol_id != 1:
             return jsonify({'msg': 'Solo artesanos pueden crear solicitudes'}), 403
 
         campos_perfil = ['nombre', 'telefono', 'dni']
@@ -62,7 +67,7 @@ def crear_solicitud():
         if Artesano.query.filter_by(dni=data['dni']).first():
             return jsonify({'msg': 'El DNI ya está registrado'}), 400
 
-        if Artesano.query.filter_by(usuario_id=current_user['id']).first():
+        if Artesano.query.filter_by(usuario_id=usuario.usuario_id).first():
             return jsonify({'msg': 'Ya existe un perfil de artesano asociado a este usuario'}), 400
 
         campos_solicitud = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id']
@@ -82,7 +87,7 @@ def crear_solicitud():
 
         # Crear artesano
         artesano = Artesano(
-            usuario_id=current_user['id'],
+            usuario_id=usuario.usuario_id,
             nombre=data['nombre'],
             telefono=data['telefono'],
             dni=data['dni']
@@ -200,9 +205,11 @@ def crear_solicitud():
 @solicitud_bp.route('', methods=['GET'])
 @jwt_required()
 def obtener_solicitud_artesano():
-    current_user = get_jwt_identity()
+    usuario = get_usuario_actual()
+    if not usuario:
+        return jsonify({'msg': 'Usuario no encontrado'}), 404
     
-    artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+    artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
     if not artesano:
         return jsonify({'msg': 'Perfil no encontrado'}), 404
     
@@ -248,9 +255,11 @@ def cancelar_solicitud_artesano(solicitud_id):
     Cancelar una solicitud (puede ser cancelada en cualquier estado)
     """
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
         
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'error': 'Artesano no encontrado'}), 404
         
@@ -310,9 +319,11 @@ def cancelar_solicitud_artesano(solicitud_id):
 def agregar_fotos_solicitud(solicitud_id):
     """Agregar MÚLTIPLES fotos (1-5) a una solicitud existente desde FormData"""
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
         
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
             
@@ -396,13 +407,15 @@ def agregar_fotos_solicitud(solicitud_id):
 @jwt_required()
 def eliminar_foto_solicitud(foto_id):
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
         
         foto = SolicitudFoto.query.get(foto_id)
         if not foto:
             return jsonify({'msg': 'Foto no encontrada'}), 404
             
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
             
@@ -427,13 +440,15 @@ def eliminar_foto_solicitud(foto_id):
 @jwt_required()
 def obtener_foto_completa(foto_id):
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
         
         foto = SolicitudFoto.query.get(foto_id)
         if not foto:
             return jsonify({'msg': 'Foto no encontrada'}), 404
             
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
             
@@ -462,9 +477,11 @@ def obtener_foto_completa(foto_id):
 @jwt_required()
 def obtener_fotos_completas_solicitud(solicitud_id):
     try:
-        current_user = get_jwt_identity()
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
         
-        artesano = Artesano.query.filter_by(usuario_id=current_user['id']).first()
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
             

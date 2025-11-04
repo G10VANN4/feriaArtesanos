@@ -66,38 +66,15 @@ def login():
         if not user or not user.check_password(password):
             return jsonify({'msg': 'Credenciales inválidas'}), 401
 
-        # Determinar rol
-        rol_id = user.rol_id
-        administrador_id = None
-        organizador_id = None
+        # SOLUCIÓN: Identity como string simple
+        user_identity = f"user_{user.usuario_id}"
 
-        # Asociar ID de perfil según el rol
-        if rol_id == 2:  # Administrador
-            from models.administrador import Administrador
-            admin = Administrador.query.filter_by(usuario_id=user.usuario_id).first()
-            if admin:
-                administrador_id = admin.administrador_id
-
-        elif rol_id == 3:  # Organizador
-            from models.organizador import Organizador
-            org = Organizador.query.filter_by(usuario_id=user.usuario_id).first()
-            if org:
-                organizador_id = org.organizador_id
-
-        # Crear token JWT con datos esenciales
-        access_token = create_access_token(
-            identity={
-                'id': user.usuario_id,
-                'rol_id': rol_id,
-                'administrador_id': administrador_id,
-                'organizador_id': organizador_id
-            },
-            expires_delta=timedelta(hours=3)  # duración de token (3h)
-        )
+        # Crear token JWT (como en la documentación)
+        access_token = create_access_token(identity=user_identity)
 
         return jsonify({
             'access_token': access_token,
-            'rol_id': rol_id,
+            'rol_id': user.rol_id,
             'usuario_id': user.usuario_id,
             'msg': 'Inicio de sesión exitoso'
         }), 200
