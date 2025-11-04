@@ -31,7 +31,7 @@ function App() {
                         <Route path="/registro" element={<Registro />} />
                         <Route path="/formulario" element={<Formulario />} />
 
-                        {/* 2. RUTAS PROTEGIDAS: Ahora AdminDashboard y Gestión de Usuarios están protegidas */}
+                        
                         <Route 
                             path="/dashboard" 
                             element={

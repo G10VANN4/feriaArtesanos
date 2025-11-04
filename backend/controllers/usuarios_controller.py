@@ -5,7 +5,7 @@ from models.administrador import Administrador
 from models.organizador import Organizador
 from passlib.hash import sha256_crypt
 from datetime import datetime
-
+from datetime import timedelta
 
 usuarios_bp = Blueprint('usuarios', __name__)
 
@@ -276,6 +276,7 @@ def obtener_usuario(usuario_id):
                     'activo': org.activo,
                     'fecha_creacion': org.fecha_creacion.isoformat() if org.fecha_creacion else None,
                     'organizador_id': org.organizador_id
+        
                 })
         
         return jsonify(usuario_data), 200
