@@ -179,12 +179,6 @@ def init_db():
             'success': True,
             'message': '✅ Base de datos inicializada completamente',
             'datos_insertados': datos_insertados,
-            'admins_creados': admin_creado,
-            'credenciales_admin': {
-                'email': 'admin@feria.com',
-                'password': 'admin123',
-                'rol': 'Administrador'
-            },
             'credenciales_organizador': {
                 'email': 'organizador@feria.com',
                 'password': 'org123',

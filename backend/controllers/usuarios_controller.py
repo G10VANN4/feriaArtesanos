@@ -237,19 +237,17 @@ def eliminar_usuario(usuario_id):
         if not usuario:
             return jsonify({'error': 'Usuario no encontrado'}), 404
         
-        # Cambiar estado a inactivo en tabla Usuario
-        usuario.estado_id = 2
-        
-        # También marcar como inactivo en el perfil específico
+        # Primero eliminar los registros relacionados
         if usuario.rol_id == 2:  # Administrador
             admin = Administrador.query.filter_by(usuario_id=usuario_id).first()
             if admin:
-                admin.activo = False
+                db.session.delete(admin)
         elif usuario.rol_id == 3:  # Organizador
             org = Organizador.query.filter_by(usuario_id=usuario_id).first()
             if org:
-                org.activo = False
-        
+                db.session.delete(org)
+        # Finalmente eliminar el usuario
+        db.session.delete(usuario)
         db.session.commit()
         
         return jsonify({'message': 'Usuario eliminado exitosamente'}), 200

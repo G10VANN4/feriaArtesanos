@@ -1831,28 +1831,191 @@ h3 {
     justify-content: center;
   }
 }
+/* Estilos para notificaciones */
+.notificaciones-container {
+  position: relative;
+  display: inline-block;
+}
 
-/* BOTÓN VER - NUEVO ESTILO CON TU PALETA DE COLORES */
-.btn-ver {
-  padding: 0.25rem 0.5rem;
-  background: #a0522d; /* Marrón principal de tu paleta */
-  color: white;
+.notificaciones-btn {
+  background: none;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.875rem;
+  position: relative;
+  padding: 8px;
+  border-radius: 4px;
+  color: #8B4513; /* Marrón */
+  outline: none; /* Esto quita el cuadro azul del focus */
+}
+
+.notificaciones-btn:hover {
+  background-color: rgba(139, 69, 19, 0.1);
+}
+
+.notificaciones-btn:focus {
+  outline: none; /* Esto también por si acaso */
+  box-shadow: none; /* Por si hay algún box-shadow */
+}
+
+.notificaciones-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.notificaciones-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 400px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.notificaciones-header {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8f9fa;
+}
+
+.notificaciones-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.marcar-todas-btn {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  outline: none; /* También quitamos el outline de este botón */
+}
+
+.marcar-todas-btn:hover {
+  color: #0056b3;
+}
+
+.marcar-todas-btn:focus {
+  outline: none;
+}
+
+.notificaciones-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notificacion-item {
+  padding: 12px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.notificacion-item:hover {
+  background-color: #f8f9fa;
+}
+
+.notificacion-item.leida {
+  opacity: 0.7;
+}
+
+.notificacion-item.no-leida {
+  background-color: #f0f8ff;
   font-weight: 500;
-  transition: all 0.3s ease;
 }
 
-.btn-ver:hover:not(:disabled) {
-  background: #8b4513; /* Marrón más oscuro al hover */
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(160, 82, 45, 0.3);
+/* Colores por tipo de notificación */
+.notificacion-item.aprobada {
+  border-left: 4px solid #8B4513;
 }
 
-.btn-ver:disabled {
-  background: #c4a484; /* Marrón claro deshabilitado */
-  cursor: not-allowed;
-  transform: none;
+.notificacion-item.rechazada {
+  border-left: 4px solid #dc3545;
 }
+
+.notificacion-item.cancelada {
+  border-left: 4px solid #6c757d;
+}
+
+.notificacion-item.modificacion {
+  border-left: 4px solid #ffc107;
+}
+
+.notificacion-item.info {
+  border-left: 4px solid #17a2b8;
+}
+
+.notificacion-contenido {
+  flex: 1;
+}
+
+.notificacion-mensaje {
+  color: #333;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.notificacion-comentario {
+  color: #666;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #6c757d;
+  line-height: 1.4;
+}
+
+.notificacion-comentario strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.notificacion-fecha {
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+.notificacion-punto {
+  width: 8px;
+  height: 8px;
+  background-color: #007bff;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+
+.notificacion-loading,
+.notificacion-vacia {
+  padding: 20px;
+  text-align: center;
+  color: #6c757d;
+}
+
+
+
+
+
+

@@ -50,7 +50,7 @@ const Login = () => {
       setLoading(false);
     }
   };
-  // Si ya está autenticado, mostrar mensaje y opciones
+
   // Si ya está autenticado, mostrar mensaje y opciones
   if (isAuthenticated) {
     return (

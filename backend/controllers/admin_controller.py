@@ -178,7 +178,7 @@ class AdminController:
             solicitud.fecha_gestion = datetime.utcnow()
 
             if solicitud.artesano_id:
-                mensaje_notificacion = f"El estado de tu solicitud #{solicitud_id} ha cambiado de '{estado_anterior}' a '{estado_nombre_nuevo}'."
+                mensaje_notificacion = f"El estado de tu solicitud cambio de ' {estado_anterior} ' a ' {estado_nombre_nuevo} '."
                 
                 if comentarios_admin:
                     mensaje_notificacion += f" Comentarios del administrador: {comentarios_admin}"
@@ -221,7 +221,7 @@ class AdminController:
             solicitud.comentarios_admin = (solicitud.comentarios_admin or "") + f"\n[AUDITORÍA] Cancelada por Admin/Organizador (ID: {administrador.administrador_id}) el {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
             
             if solicitud.artesano_id:
-                mensaje_notificacion = f"Tu solicitud #{solicitud_id} ha sido cancelada por el administrador. Estado anterior: {estado_anterior}"
+                mensaje_notificacion = f"Tu solicitud fue cancelada por el administrador. Estado anterior: {estado_anterior}"
                 
                 AdminController.crear_notificacion_artesano(
                     solicitud.artesano_id, 
