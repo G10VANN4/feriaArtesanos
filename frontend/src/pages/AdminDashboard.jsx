@@ -11,7 +11,12 @@ import {
   FiAlertTriangle,
   FiSearch,
   FiDownload,
-  FiUsers
+  FiUsers,
+  FiX,
+  FiSettings,
+  FiPieChart,
+  FiDollarSign,
+  FiEdit
 } from "react-icons/fi";
 import axios from "axios";
 import "../styles/App.css";
@@ -49,6 +54,165 @@ const Dashboard = () => {
   const [editData, setEditData] = useState({ estado_solicitud: "Pendiente", notas_admin: "" });
   const [solicitudDetails, setSolicitudDetails] = useState(null);
   const [activeSolicitudId, setActiveSolicitudId] = useState(null);
+  
+  // Estado para el modal de imagen ampliada
+  const [imagenAmpliada, setImagenAmpliada] = useState(null);
+
+  // NUEVOS ESTADOS PARA LAS FUNCIONALIDADES REQUERIDAS
+  const [modificarModal, setModificarModal] = useState(null);
+  const [configuracionesRubros, setConfiguracionesRubros] = useState([]);
+  const [diversidadRubros, setDiversidadRubros] = useState([]);
+  const [showConfiguracion, setShowConfiguracion] = useState(false);
+  const [showDiversidad, setShowDiversidad] = useState(false);
+
+  // Función para reconstruir URLs de fotos - CORREGIDA
+  const reconstruirFotos = (solicitudData) => {
+    const fotos = [];
+    
+    console.log("Datos para reconstruir fotos:", solicitudData);
+    
+    // Procesar fotos existentes del array de fotos
+    if (solicitudData.fotos && Array.isArray(solicitudData.fotos)) {
+      solicitudData.fotos.forEach((foto, index) => {
+        if (foto) {
+          // Si es base64 (data URL), usarlo directamente
+          // Si es una ruta de archivo, construir la URL completa
+          let fotoUrl = foto;
+          if (foto.startsWith('/uploads/') || foto.startsWith('uploads/')) {
+            fotoUrl = `${API_BASE_URL.replace('/api/v1', '')}${foto.startsWith('/') ? '' : '/'}${foto}`;
+          }
+          // Si ya es base64 o URL completa, usar directamente
+          
+          fotos.push({
+            foto_id: `existente_${index}`,
+            image_url: fotoUrl,
+            tipo: 'existente'
+          });
+        }
+      });
+    }
+    
+    // Procesar foto_puesto individual si existe y no está ya en el array
+    if (solicitudData.foto_puesto) {
+      let fotoPuestoUrl = solicitudData.foto_puesto;
+      if (solicitudData.foto_puesto.startsWith('/uploads/') || solicitudData.foto_puesto.startsWith('uploads/')) {
+        fotoPuestoUrl = `${API_BASE_URL.replace('/api/v1', '')}${solicitudData.foto_puesto.startsWith('/') ? '' : '/'}${solicitudData.foto_puesto}`;
+      }
+      
+      // Verificar si ya existe en las fotos para evitar duplicados
+      const yaExiste = fotos.some(foto => foto.image_url === fotoPuestoUrl);
+      
+      if (!yaExiste) {
+        fotos.push({
+          foto_id: 'foto_puesto',
+          image_url: fotoPuestoUrl,
+          tipo: 'existente'
+        });
+      }
+    }
+    
+    console.log("Fotos reconstruidas:", fotos);
+    return fotos;
+  };
+
+  // NUEVAS FUNCIONES PARA LAS FUNCIONALIDADES REQUERIDAS
+
+  // RF17: Cargar configuraciones de rubros
+  const fetchConfiguracionesRubros = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/configuraciones/rubros`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setConfiguracionesRubros(response.data);
+    } catch (error) {
+      console.error("Error al cargar configuraciones de rubros:", error);
+    }
+  };
+
+  // RF14: Cargar diversidad de rubros
+  const fetchDiversidadRubros = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/diversidad-rubros`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDiversidadRubros(response.data);
+    } catch (error) {
+      console.error("Error al cargar diversidad de rubros:", error);
+    }
+  };
+
+  // RF13: Modificar información del puesto
+  const handleModificarClick = (solicitud) => {
+    setModificarModal({
+      id: solicitud.id,
+      datos: {
+        rubro_id: solicitud.rubro_id || 1,
+        dimensiones_largo: solicitud.alto || 0,
+        dimensiones_ancho: solicitud.ancho || 0,
+        descripcion: solicitud.descripcion_puesto || "",
+        comentarios_admin: solicitud.originalData?.notas_admin || ""
+      }
+    });
+  };
+
+  const handleGuardarModificacion = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token || !modificarModal) return;
+
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/solicitudes/${modificarModal.id}/modificar`,
+        modificarModal.datos,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
+
+      alert("Información del puesto modificada correctamente. El artesano ha sido notificado.");
+      setModificarModal(null);
+      fetchSolicitudes();
+    } catch (error) {
+      console.error("Error al modificar la información:", error);
+      alert("Error al modificar la información: " + (error.response?.data?.msg || error.message));
+    }
+  };
+
+  // RF17: Actualizar configuración de rubro
+  const handleActualizarConfiguracion = async (rubroId, nuevosDatos) => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      await axios.put(
+        `${API_BASE_URL}/configuraciones/rubros/${rubroId}`,
+        nuevosDatos,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
+
+      alert("Configuración actualizada correctamente");
+      fetchConfiguracionesRubros();
+      fetchDiversidadRubros();
+    } catch (error) {
+      console.error("Error al actualizar configuración:", error);
+      alert("Error al actualizar configuración: " + (error.response?.data?.msg || error.message));
+    }
+  };
+
+  // FUNCIONES EXISTENTES (NO MODIFICADAS)
 
   // Función para cargar estadísticas de TODAS las solicitudes por rubro
   const fetchRubrosStatsTodas = async () => {
@@ -107,24 +271,29 @@ const Dashboard = () => {
       
       console.log("Datos recibidos del backend:", response.data);
       
-      const solicitudesMapeadas = response.data.map((item) => ({
-        ...item,
-        originalData: item.originalData,
-        id: item.id,
-        nombre: item.nombre,
-        rubro: item.rubro,
-        alto: item.originalData?.alto,
-        ancho: item.originalData?.ancho,
-        dimensiones: item.dimensiones,
-        email: item.originalData?.email,
-        dni: item.originalData?.dni,
-        telefono: item.originalData?.telefono,
-        descripcion_puesto: item.originalData?.descripcion_puesto,
-        foto_puesto: item.originalData?.foto_puesto,
-        fecha_creacion: item.originalData?.fecha_solicitud,
-        artesano_id: item.artesano_id,
-        estado: item.estado
-      }));
+      const solicitudesMapeadas = response.data.map((item) => {
+        const fotosReconstruidas = reconstruirFotos(item.originalData || item);
+        
+        return {
+          ...item,
+          originalData: item.originalData,
+          id: item.id,
+          nombre: item.nombre,
+          rubro: item.rubro,
+          alto: item.originalData?.alto,
+          ancho: item.originalData?.ancho,
+          dimensiones: item.dimensiones,
+          email: item.originalData?.email,
+          dni: item.originalData?.dni,
+          telefono: item.originalData?.telefono,
+          descripcion_puesto: item.originalData?.descripcion_puesto,
+          foto_puesto: item.originalData?.foto_puesto,
+          fecha_creacion: item.originalData?.fecha_solicitud,
+          artesano_id: item.artesano_id,
+          estado: item.estado,
+          fotosReconstruidas: fotosReconstruidas
+        };
+      });
       
       setSolicitudes(solicitudesMapeadas);
     } catch (error) {
@@ -140,6 +309,9 @@ const Dashboard = () => {
     fetchSolicitudes();
     fetchRubrosStatsTodas();
     fetchRubrosStatsAprobadas();
+    // Cargar las nuevas funcionalidades
+    fetchConfiguracionesRubros();
+    fetchDiversidadRubros();
   }, [fetchSolicitudes]);
 
   // Función para exportar artesanos a PDF
@@ -243,6 +415,8 @@ const Dashboard = () => {
   };
 
   const handleViewDetails = (s) => {
+    const fotosReconstruidas = reconstruirFotos(s.originalData || s);
+    
     const detallesCompletos = {
       ...s.originalData,
       nombre: s.nombre,
@@ -257,7 +431,7 @@ const Dashboard = () => {
       fecha_creacion: s.fecha_creacion,
       estado: s.estado,
       notas_admin: s.originalData?.notas_admin,
-      fotos: s.originalData?.fotos || []
+      fotos: fotosReconstruidas
     };
     setSolicitudDetails(detallesCompletos);
   };
@@ -278,6 +452,15 @@ const Dashboard = () => {
     return 'N/A';
   };
 
+  // Funciones para el modal de imagen ampliada
+  const ampliarImagen = (imageUrl) => {
+    setImagenAmpliada(imageUrl);
+  };
+
+  const cerrarImagen = () => {
+    setImagenAmpliada(null);
+  };
+
   return (
     <div className="gestion-usuarios-container">
       <Navbar />
@@ -289,10 +472,133 @@ const Dashboard = () => {
         transition={{ duration: 0.5 }}
       >
         <header className="gestion-header">
-          <h1>Gestión de Solicitudes</h1>
-          <p>Administrá, filtrá y gestioná las solicitudes enviadas por los artesanos.</p>
+          <div className="header-main">
+            <h1>Gestión de Solicitudes</h1>
+            <p>Administrá, filtrá y gestioná las solicitudes enviadas por los artesanos.</p>
+          </div>
+          
+          {/* NUEVOS BOTONES PARA LAS FUNCIONALIDADES REQUERIDAS */}
+          <div className="header-actions">
+            <button 
+              className="btn-configuracion"
+              onClick={() => setShowConfiguracion(!showConfiguracion)}
+            >
+              <FiSettings size={18} />
+              Configurar Rubros
+            </button>
+            <button 
+              className="btn-diversidad"
+              onClick={() => setShowDiversidad(!showDiversidad)}
+            >
+              <FiPieChart size={18} />
+              Diversidad Rubros
+            </button>
+          </div>
         </header>
 
+        {/* NUEVO PANEL: Configuración de Rubros (RF17) */}
+        {showConfiguracion && (
+          <div className="configuracion-panel">
+            <h3>Configuración de Precios y Límites por Rubro</h3>
+            <div className="configuracion-grid">
+              {configuracionesRubros.map(config => (
+                <div key={config.rubro_id} className="configuracion-item">
+                  <h4>{config.rubro_nombre}</h4>
+                  <div className="config-inputs">
+                    <div className="input-group">
+                      <label>Precio Base ($):</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={config.precio_base}
+                        onChange={(e) => {
+                          const nuevasConfigs = [...configuracionesRubros];
+                          const index = nuevasConfigs.findIndex(c => c.rubro_id === config.rubro_id);
+                          nuevasConfigs[index].precio_base = parseFloat(e.target.value);
+                          setConfiguracionesRubros(nuevasConfigs);
+                        }}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Límite de Puestos:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={config.limite_puestos || ''}
+                        onChange={(e) => {
+                          const nuevasConfigs = [...configuracionesRubros];
+                          const index = nuevasConfigs.findIndex(c => c.rubro_id === config.rubro_id);
+                          nuevasConfigs[index].limite_puestos = e.target.value ? parseInt(e.target.value) : null;
+                          setConfiguracionesRubros(nuevasConfigs);
+                        }}
+                        placeholder="Sin límite"
+                      />
+                    </div>
+                    <div className="estado-limite">
+                      <span className={`badge ${config.disponible ? 'bg-green-500' : 'bg-red-500'}`}>
+                        {config.disponible ? 'Disponible' : 'Límite Alcanzado'}
+                      </span>
+                      <span>{config.puestos_aprobados}/{config.limite_puestos || '∞'}</span>
+                    </div>
+                  </div>
+                  <button
+                    className="btn-guardar-config"
+                    onClick={() => handleActualizarConfiguracion(config.rubro_id, {
+                      precio_base: config.precio_base,
+                      limite_puestos: config.limite_puestos
+                    })}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* NUEVO PANEL: Diversidad de Rubros (RF14) */}
+        {showDiversidad && (
+          <div className="diversidad-panel">
+            <h3>Diversidad por Categorías - Estado de Límites</h3>
+            <div className="diversidad-grid">
+              {diversidadRubros.map(rubro => (
+                <div key={rubro.rubro_id} className={`diversidad-item ${rubro.limite_alcanzado ? 'limite-alcanzado' : ''}`}>
+                  <h4>{rubro.rubro_nombre}</h4>
+                  <div className="diversidad-stats">
+                    <div className="stat">
+                      <span className="stat-label">Total Solicitudes:</span>
+                      <span className="stat-value">{rubro.total_solicitudes}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="stat-label">Aprobadas:</span>
+                      <span className="stat-value aprobadas">{rubro.aprobadas}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="stat-label">Pendientes:</span>
+                      <span className="stat-value pendientes">{rubro.pendientes}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="stat-label">Límite:</span>
+                      <span className="stat-value limite">{rubro.disponibilidad}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="stat-label">Precio Base:</span>
+                      <span className="stat-value precio">${rubro.precio_base}</span>
+                    </div>
+                  </div>
+                  {rubro.limite_alcanzado && (
+                    <div className="alerta-limite">
+                      ⚠️ Límite alcanzado - Revisar nuevas solicitudes
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CONTENIDO EXISTENTE - SIN MODIFICACIONES */}
         <div className="listado-usuarios-section">
           <div className="listado-header">
             <h2>Listado de Solicitudes</h2>
@@ -480,9 +786,20 @@ const Dashboard = () => {
                               e.stopPropagation();
                               handleEditClick(s);
                             }}
-                            title="Editar solicitud"
+                            title="Editar estado"
                           >
-                            Editar
+                            <FiEdit3 size={14} />
+                          </button>
+                          {/* NUEVO BOTÓN: Modificar información (RF13) */}
+                          <button 
+                            className="btn-modificar"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleModificarClick(s);
+                            }}
+                            title="Modificar información del puesto"
+                          >
+                            <FiEdit size={14} />
                           </button>
                           <button 
                             className="btn-eliminar"
@@ -492,7 +809,7 @@ const Dashboard = () => {
                             }}
                             title="Rechazar solicitud"
                           >
-                            Rechazar
+                            <FiTrash2 size={14} />
                           </button>
                           <button 
                             className="btn-ver"
@@ -502,7 +819,7 @@ const Dashboard = () => {
                             }}
                             title="Ver detalles"
                           >
-                            Ver
+                            <FiEye size={14} />
                           </button>
                         </div>
                       </td>
@@ -529,6 +846,8 @@ const Dashboard = () => {
       <footer className="footer">
         © {new Date().getFullYear()} Feria Artesanal — Todos los derechos reservados.
       </footer>
+
+      {/* MODALES EXISTENTES - SIN MODIFICACIONES */}
 
       {editId && (
         <div className="modal-overlay">
@@ -659,19 +978,25 @@ const Dashboard = () => {
                 </span>
               </div>
               
+              {/* SECCIÓN DE FOTOS RECONSTRUIDAS - CORREGIDA */}
               {solicitudDetails.fotos && solicitudDetails.fotos.length > 0 && (
                 <div className="detalle-foto-section">
                   <strong>Fotos del Puesto:</strong>
                   <div className="fotos-container">
                     {solicitudDetails.fotos.map((foto, index) => (
-                      <div key={index} className="foto-item">
+                      <div key={foto.foto_id || index} className="foto-item">
                         <img 
-                          src={`http://localhost:5000${foto}`} 
+                          src={foto.image_url} 
                           alt={`Foto del puesto ${index + 1}`} 
                           className="foto-puesto"
+                          onClick={() => ampliarImagen(foto.image_url)}
                           onError={(e) => {
+                            console.error("Error cargando imagen:", foto.image_url);
                             e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'block';
+                            const placeholder = e.target.nextElementSibling;
+                            if (placeholder) {
+                              placeholder.style.display = 'flex';
+                            }
                           }}
                         />
                         <div className="foto-placeholder" style={{display: 'none'}}>
@@ -684,22 +1009,30 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {solicitudDetails.foto_puesto && !solicitudDetails.fotos && (
+              {/* Fallback para foto_puesto individual si no hay fotos reconstruidas */}
+              {(!solicitudDetails.fotos || solicitudDetails.fotos.length === 0) && solicitudDetails.foto_puesto && (
                 <div className="detalle-foto-section">
                   <strong>Foto del Puesto:</strong>
-                  <div className="foto-container">
-                    <img 
-                      src={`http://localhost:5000${solicitudDetails.foto_puesto}`} 
-                      alt="Foto del puesto" 
-                      className="foto-puesto"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                    <div className="foto-placeholder" style={{display: 'none'}}>
-                      <FiEye size={24} />
-                      <span>Imagen no disponible</span>
+                  <div className="fotos-container">
+                    <div className="foto-item">
+                      <img 
+                        src={solicitudDetails.foto_puesto} 
+                        alt="Foto del puesto" 
+                        className="foto-puesto"
+                        onClick={() => ampliarImagen(solicitudDetails.foto_puesto)}
+                        onError={(e) => {
+                          console.error("Error cargando imagen:", solicitudDetails.foto_puesto);
+                          e.target.style.display = 'none';
+                          const placeholder = e.target.nextElementSibling;
+                          if (placeholder) {
+                            placeholder.style.display = 'flex';
+                          }
+                        }}
+                      />
+                      <div className="foto-placeholder" style={{display: 'none'}}>
+                        <FiEye size={24} />
+                        <span>Imagen no disponible</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -730,6 +1063,122 @@ const Dashboard = () => {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* NUEVO MODAL: Modificar información del puesto (RF13) */}
+      {modificarModal && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-wide">
+            <div className="modal-header">
+              <h2>✏️ Modificar Información del Puesto ID: {modificarModal.id}</h2>
+              <button 
+                className="btn-cerrar"
+                onClick={() => setModificarModal(null)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Rubro</label>
+              <select
+                value={modificarModal.datos.rubro_id}
+                onChange={(e) => setModificarModal({
+                  ...modificarModal,
+                  datos: {...modificarModal.datos, rubro_id: parseInt(e.target.value)}
+                })}
+                className="form-input"
+              >
+                <option value={1}>Artesanías</option>
+                <option value={2}>Gastronomía</option>
+                <option value={3}>Reventa</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Largo (m)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={modificarModal.datos.dimensiones_largo}
+                  onChange={(e) => setModificarModal({
+                    ...modificarModal,
+                    datos: {...modificarModal.datos, dimensiones_largo: parseFloat(e.target.value)}
+                  })}
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ancho (m)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={modificarModal.datos.dimensiones_ancho}
+                  onChange={(e) => setModificarModal({
+                    ...modificarModal,
+                    datos: {...modificarModal.datos, dimensiones_ancho: parseFloat(e.target.value)}
+                  })}
+                  className="form-input"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Descripción del Puesto</label>
+              <textarea
+                value={modificarModal.datos.descripcion}
+                onChange={(e) => setModificarModal({
+                  ...modificarModal,
+                  datos: {...modificarModal.datos, descripcion: e.target.value}
+                })}
+                rows={3}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Motivo de la Modificación</label>
+              <textarea
+                value={modificarModal.datos.comentarios_admin}
+                onChange={(e) => setModificarModal({
+                  ...modificarModal,
+                  datos: {...modificarModal.datos, comentarios_admin: e.target.value}
+                })}
+                rows={2}
+                placeholder="Explique el motivo de los cambios..."
+                className="form-input"
+              />
+              <small className="form-help">
+                Este mensaje será enviado como notificación al artesano.
+              </small>
+            </div>
+
+            <div className="modal-actions">
+              <button onClick={() => setModificarModal(null)} className="btn-secondary">
+                Cancelar
+              </button>
+              <button onClick={handleGuardarModificacion} className="btn-primary">
+                Guardar Cambios y Notificar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para imagen ampliada */}
+      {imagenAmpliada && (
+        <div className="modal-overlay" onClick={cerrarImagen}>
+          <div className="modal-imagen" onClick={(e) => e.stopPropagation()}>
+            <button className="btn-cerrar-modal" onClick={cerrarImagen}>
+              <FiX size={24} />
+            </button>
+            <img 
+              src={imagenAmpliada} 
+              alt="Imagen ampliada del puesto"
+            />
           </div>
         </div>
       )}

@@ -58,12 +58,12 @@ const EstadisticasUsuarios = () => {
     }
   };
 
-  const exportarPDF = async () => {
+  const exportarExcel = async () => {
     if (!validarFechas()) return;
 
     try {
       const token = localStorage.getItem("access_token");
-      const response = await axios.get(`${API_BASE_URL}/estadisticas/usuarios/exportar-pdf`, {
+      const response = await axios.get(`${API_BASE_URL}/estadisticas/usuarios/exportar-excel`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           fecha_inicio: fechaInicio,
@@ -73,19 +73,19 @@ const EstadisticasUsuarios = () => {
         responseType: 'blob'
       });
 
-      // Crear enlace de descarga
+      // Crear enlace de descarga para Excel
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `reporte_usuarios_${fechaInicio}_${fechaFin}.pdf`);
+      link.setAttribute('download', `reporte_usuarios_${fechaInicio}_${fechaFin}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
     } catch (error) {
-      console.error('Error al exportar PDF:', error);
-      setError(error.response?.data?.msg || 'Error al exportar PDF');
+      console.error('Error al exportar Excel:', error);
+      setError(error.response?.data?.msg || 'Error al exportar Excel');
     }
   };
 
@@ -149,12 +149,12 @@ const EstadisticasUsuarios = () => {
           </button>
 
           <button
-            onClick={exportarPDF}
+            onClick={exportarExcel}
             disabled={!estadisticas || loading}
             className="btn-secondary"
           >
             <FiDownload className="icon" />
-            Exportar PDF
+            Exportar Excel
           </button>
         </div>
       </div>
@@ -174,9 +174,9 @@ const EstadisticasUsuarios = () => {
               {estadisticas.total_general}
             </div>
             <p>
-              Período: {new Date(estadisticas.rango_fechas.inicio).toLocaleDateString('es-ES')} 
+              Período: {estadisticas.rango_fechas.inicio} 
               {' - '} 
-              {new Date(estadisticas.rango_fechas.fin).toLocaleDateString('es-ES')}
+              {estadisticas.rango_fechas.fin}
             </p>
           </div>
 

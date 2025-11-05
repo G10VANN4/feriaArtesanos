@@ -2194,7 +2194,7 @@ h3 {
   text-decoration: none;
 }
 
-.btn-editar {
+.btn-editar, .btn-ver, .btn-modificar {
   background-color: #a0522d;
   color: white;
   border: 2px solid #a0522d;
@@ -2740,4 +2740,444 @@ h3 {
 .campo textarea.form-textarea {
   background-color: #fff;
   color: #333;
+}
+
+/* ===== ESTILOS PARA NUEVAS FUNCIONALIDADES RF13, RF14, RF17 ===== */
+
+/* --- RF17: Configuración de Rubros --- */
+.configuracion-panel {
+  background: #faf0e6;
+  border: 1px solid #e0dbcf;
+  border-radius: 8px;
+  padding: 2rem;
+  margin: 1.5rem 0;
+  border-top: 5px solid #a0522d;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.configuracion-panel h3 {
+  color: #5c4033;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e0dbcf;
+  padding-bottom: 0.8rem;
+}
+
+.configuracion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.configuracion-item {
+  background: white;
+  border: 1px solid #e0dbcf;
+  border-radius: 6px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.configuracion-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.configuracion-item h4 {
+  color: #5c4033;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.config-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input-group label {
+  font-weight: 600;
+  color: #5c4033;
+  font-size: 0.9rem;
+}
+
+.input-group input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0dbcf;
+  border-radius: 4px;
+  font-size: 1rem;
+  background: white;
+  color: #38312b;
+  transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #a0522d;
+  box-shadow: 0 0 0 2px rgba(160, 82, 45, 0.2);
+}
+
+.estado-limite {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem;
+  background: #f8f4e3;
+  border-radius: 4px;
+  border: 1px solid #e0dbcf;
+}
+
+.estado-limite .badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+.btn-guardar-config {
+  background: #a0522d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.btn-guardar-config:hover {
+  background: #8b4513;
+  transform: translateY(-1px);
+}
+
+/* --- RF14: Diversidad de Rubros --- */
+.diversidad-panel {
+  background: #faf0e6;
+  border: 1px solid #e0dbcf;
+  border-radius: 8px;
+  padding: 2rem;
+  margin: 1.5rem 0;
+  border-top: 5px solid #a0522d;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.diversidad-panel h3 {
+  color: #5c4033;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e0dbcf;
+  padding-bottom: 0.8rem;
+}
+
+.diversidad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.diversidad-item {
+  background: white;
+  border: 1px solid #e0dbcf;
+  border-radius: 6px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.diversidad-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.diversidad-item.limite-alcanzado {
+  border-color: #dc3545;
+  background: linear-gradient(135deg, #fff 0%, #ffe6e6 100%);
+}
+
+.diversidad-item h4 {
+  color: #5c4033;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-bottom: 1px solid #e0dbcf;
+  padding-bottom: 0.5rem;
+}
+
+.diversidad-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.stat-label {
+  color: #7d5d4d;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.stat-value.aprobadas {
+  color: #28a745;
+}
+
+.stat-value.pendientes {
+  color: #ffc107;
+}
+
+.stat-value.limite {
+  color: #a0522d;
+}
+
+.stat-value.precio {
+  color: #17a2b8;
+}
+
+.alerta-limite {
+  background: #dc3545;
+  color: white;
+  padding: 0.8rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* --- RF13: Modal Modificar Información --- */
+.modal-wide {
+  max-width: 700px !important;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  font-weight: 600;
+  color: #5c4033;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.form-input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0dbcf;
+  border-radius: 4px;
+  font-size: 1rem;
+  background: white;
+  color: #38312b;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #a0522d;
+  box-shadow: 0 0 0 2px rgba(160, 82, 45, 0.2);
+}
+
+.form-help {
+  color: #7d5d4d;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* --- Botones de Acción en Header --- */
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-configuracion, .btn-diversidad {
+  background: #5c4033;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.btn-configuracion:hover, .btn-diversidad:hover {
+  background: #4a3429;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(92, 64, 51, 0.3);
+}
+
+/* --- Botón Modificar en Tabla --- */
+.btn-modificar {
+  padding: 0.25rem 0.5rem;
+  background: #a0522d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+}
+
+.btn-modificar:hover:not(:disabled) {
+  background: #a0522d;
+  transform: translateY(-1px);
+}
+
+.btn-modificar:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+  .configuracion-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .diversidad-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .btn-configuracion, .btn-diversidad {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .configuracion-panel,
+  .diversidad-panel {
+    padding: 1.5rem;
+  }
+  
+  .modal-wide {
+    margin: 1rem;
+    max-width: calc(100% - 2rem) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .configuracion-item,
+  .diversidad-item {
+    padding: 1rem;
+  }
+  
+  .config-inputs,
+  .diversidad-stats {
+    gap: 0.8rem;
+  }
+  
+  .stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+  
+  .header-actions {
+    gap: 0.8rem;
+  }
+}
+
+/* --- Mejoras Visuales Adicionales --- */
+.configuracion-item:has(.btn-guardar-config:hover) {
+  border-color: #a0522d;
+}
+
+.diversidad-item.limite-alcanzado:before {
+  content: "⚠️";
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* --- Estados de Botones --- */
+.btn-configuracion.active,
+.btn-diversidad.active {
+  background: #a0522d;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Transiciones Suaves --- */
+.configuracion-panel,
+.diversidad-panel,
+.configuracion-item,
+.diversidad-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Mejora de Legibilidad --- */
+.input-group input::placeholder {
+  color: #a8a8a8;
+  font-size: 0.9rem;
+}
+
+.form-help {
+  line-height: 1.4;
 }
