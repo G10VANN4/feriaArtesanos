@@ -150,30 +150,14 @@ def init_db():
             print("✅ Rubros insertados")
             datos_insertados = True
 
-        # 9. CREAR USUARIOS ADMINISTRADORES 
-        admin_creado = False
+
         
         # Obtener IDs necesarios
         estado_activo = EstadoUsuario.query.filter_by(tipo='Activo').first()
-        rol_admin = Rol.query.filter_by(tipo='Administrador').first()
         rol_organizador = Rol.query.filter_by(tipo='Organizador').first()
 
-        if Usuario.query.filter_by(email='admin@feria.com').first() is None:
-            # Crear usuario Administrador usando el método correcto
-            admin_user = Usuario(
-                email='admin@feria.com',
-                estado_id=estado_activo.estado_id,
-                rol_id=rol_admin.rol_id
-            )
-            admin_user.set_password('admin123')  # Usar el método del modelo para hashear
-            
-            db.session.add(admin_user)
-            db.session.flush()
-            
-
-            print("✅ Usuario Administrador creado: admin@feria.com / admin123")
-            admin_creado = True
-
+     
+       
         # 10. Crear usuario Organizador también
         if Usuario.query.filter_by(email='organizador@feria.com').first() is None:
             org_user = Usuario(

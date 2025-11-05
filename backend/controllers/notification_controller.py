@@ -128,7 +128,7 @@ class NotificationController:
                 estado_notificacion_id=estado_notificacion_id
             )
             db.session.add(notificacion)
-            db.session.commit()
+            
             
             return notificacion
         except Exception as e:
