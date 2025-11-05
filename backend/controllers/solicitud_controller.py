@@ -205,7 +205,7 @@ def crear_solicitud():
 @solicitud_bp.route('/<int:solicitud_id>', methods=['PUT'])
 @jwt_required()
 def editar_solicitud(solicitud_id):
-    """Editar datos personales de una solicitud existente"""
+    """Editar datos personales y de solicitud existente"""
     try:
         usuario = get_usuario_actual()
         if not usuario:
@@ -237,8 +237,6 @@ def editar_solicitud(solicitud_id):
         if not data:
             return jsonify({'msg': 'Datos no proporcionados'}), 400
         
-        # Solo permitir editar estos campos
-        campos_editables = ['nombre', 'telefono', 'dni']
         cambios_realizados = False
         
         # Validar y actualizar campos del artesano
@@ -272,6 +270,62 @@ def editar_solicitud(solicitud_id):
             if artesano.dni != data['dni']:
                 artesano.dni = data['dni']
                 cambios_realizados = True
+        
+        # Validar y actualizar campos de la solicitud
+        if 'descripcion' in data and data['descripcion']:
+            if len(data['descripcion']) > 500:
+                return jsonify({'msg': 'La descripción no puede tener más de 500 caracteres'}), 400
+            if solicitud.descripcion != data['descripcion']:
+                solicitud.descripcion = data['descripcion']
+                cambios_realizados = True
+        
+        if 'dimensiones_ancho' in data and data['dimensiones_ancho']:
+            try:
+                ancho = float(str(data['dimensiones_ancho']).replace(',', '.'))
+                if ancho <= 0:
+                    return jsonify({'msg': 'El ancho debe ser mayor a 0'}), 400
+                if solicitud.dimensiones_ancho != ancho:
+                    solicitud.dimensiones_ancho = ancho
+                    cambios_realizados = True
+            except ValueError:
+                return jsonify({'msg': 'El ancho debe ser un valor numérico válido'}), 400
+        
+        if 'dimensiones_largo' in data and data['dimensiones_largo']:
+            try:
+                largo = float(str(data['dimensiones_largo']).replace(',', '.'))
+                if largo <= 0:
+                    return jsonify({'msg': 'El largo debe ser mayor a 0'}), 400
+                if solicitud.dimensiones_largo != largo:
+                    solicitud.dimensiones_largo = largo
+                    cambios_realizados = True
+            except ValueError:
+                return jsonify({'msg': 'El largo debe ser un valor numérico válido'}), 400
+        
+        if 'rubro_id' in data and data['rubro_id']:
+            rubro = Rubro.query.get(data['rubro_id'])
+            if not rubro:
+                return jsonify({'msg': 'Rubro no válido'}), 400
+            if solicitud.rubro_id != data['rubro_id']:
+                solicitud.rubro_id = data['rubro_id']
+                cambios_realizados = True
+        
+        # Recalcular parcelas y costo si cambian dimensiones o rubro
+        if cambios_realizados and ('dimensiones_ancho' in data or 'dimensiones_largo' in data or 'rubro_id' in data):
+            # Calcular parcelas
+            parcelas_largo = int(solicitud.dimensiones_largo / 3)
+            if solicitud.dimensiones_largo % 3 != 0:
+                parcelas_largo += 1
+
+            parcelas_ancho = int(solicitud.dimensiones_ancho / 3)
+            if solicitud.dimensiones_ancho % 3 != 0:
+                parcelas_ancho += 1
+
+            parcelas_necesarias = parcelas_largo * parcelas_ancho
+            rubro_actual = Rubro.query.get(solicitud.rubro_id)
+            costo_total = parcelas_necesarias * float(rubro_actual.precio_parcela)
+            
+            solicitud.parcelas_necesarias = parcelas_necesarias
+            solicitud.costo_total = costo_total
         
         if cambios_realizados:
             # Actualizar fecha de modificación

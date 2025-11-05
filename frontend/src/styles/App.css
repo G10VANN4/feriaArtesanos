@@ -2676,3 +2676,68 @@ h3 {
     font-size: 1.2rem;
   }
 }
+
+
+.foto-item {
+  position: relative;
+  display: inline-block;
+  margin: 10px;
+}
+
+.btn-eliminar-foto {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.btn-eliminar-foto:hover {
+  background: #cc0000;
+}
+
+.agregar-fotos {
+  margin-bottom: 20px;
+}
+
+.agregar-fotos input {
+  margin-bottom: 5px;
+}
+
+.agregar-fotos small {
+  color: #666;
+  font-size: 12px;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.3s ease;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Estilos para los campos en modo edición */
+.campo input.form-input,
+.campo select.form-input,
+.campo textarea.form-textarea {
+  background-color: #fff;
+  color: #333;
+}

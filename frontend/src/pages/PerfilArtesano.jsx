@@ -11,11 +11,17 @@ const PerfilArtesano = () => {
   const [editando, setEditando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
+  const [nuevasFotos, setNuevasFotos] = useState([]);
+  const [fotosAEliminar, setFotosAEliminar] = useState([]);
   
   const [formData, setFormData] = useState({
     nombre: "",
     telefono: "",
-    dni: ""
+    dni: "",
+    descripcion: "",
+    dimensiones_ancho: "",
+    dimensiones_largo: "",
+    rubro_id: ""
   });
 
   useEffect(() => {
@@ -30,11 +36,10 @@ const PerfilArtesano = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      console.log("Respuesta completa de la API:", response.data); // DEBUG
+      console.log("Respuesta completa de la API:", response.data);
       
       if (response.data.solicitud) {
-        console.log("Datos de solicitud:", response.data.solicitud); // DEBUG
-        console.log("Rubro en solicitud:", response.data.solicitud.rubro_nombre); // DEBUG
+        console.log("Datos de solicitud:", response.data.solicitud);
         
         setPerfil(response.data.perfil_artesano);
         setSolicitud(response.data.solicitud);
@@ -42,7 +47,11 @@ const PerfilArtesano = () => {
         setFormData({
           nombre: response.data.perfil_artesano.nombre,
           telefono: response.data.perfil_artesano.telefono,
-          dni: response.data.perfil_artesano.dni
+          dni: response.data.perfil_artesano.dni,
+          descripcion: response.data.solicitud.descripcion,
+          dimensiones_ancho: response.data.solicitud.dimensiones_ancho,
+          dimensiones_largo: response.data.solicitud.dimensiones_largo,
+          rubro_id: response.data.solicitud.rubro_id
         });
       }
     } catch (err) {
@@ -55,50 +64,37 @@ const PerfilArtesano = () => {
 
   const obtenerNombreRubro = () => {
     if (!solicitud) return "No especificado";
-      
-    const rubro = [
-      'rubro_id'
-    ];
-    let rubroId = null;
-    for (let campo of rubro) {
-      if (solicitud[campo] !== undefined && solicitud[campo] !== null) {
-        rubroId = solicitud[campo];
-         break;
-      }
-    }
-
-    if (rubroId === null) {
-      const rubro = ['rubro_nombre', 'nombre_rubro', 'rubro_nombre'];
-      for (let campo of rubro) {
-        if (solicitud[campo]) {
-          return solicitud[campo];
-        }
-      }
-      return "No especificado";
-    }
-      
-      
+    
+    const rubroId = solicitud.rubro_id;
+    
     const rubros = {
       1: "Gastronomía",
-      2: "Reventa", 
-      3: "Artesanía"
+      2: "Artesanía", 
+      3: "Reventa"
     };
       
     return rubros[rubroId] || "No especificado";
   };
 
-  
   const handleEdit = () => {
     setEditando(true);
+    setNuevasFotos([]);
+    setFotosAEliminar([]);
   };
 
   const handleCancel = () => {
     setFormData({
       nombre: perfil.nombre,
       telefono: perfil.telefono,
-      dni: perfil.dni
+      dni: perfil.dni,
+      descripcion: solicitud.descripcion,
+      dimensiones_ancho: solicitud.dimensiones_ancho,
+      dimensiones_largo: solicitud.dimensiones_largo,
+      rubro_id: solicitud.rubro_id
     });
     setEditando(false);
+    setNuevasFotos([]);
+    setFotosAEliminar([]);
   };
 
   const handleChange = (e) => {
@@ -109,12 +105,40 @@ const PerfilArtesano = () => {
     });
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // Validar cantidad máxima de fotos
+    const fotosActuales = solicitud.fotos ? solicitud.fotos.length : 0;
+    const fotosDespuesEliminar = fotosActuales - fotosAEliminar.length;
+    const totalFotos = fotosDespuesEliminar + nuevasFotos.length + files.length;
+    
+    if (totalFotos > 5) {
+      setError("No puedes tener más de 5 fotos en total");
+      return;
+    }
+    
+    setNuevasFotos([...nuevasFotos, ...files]);
+  };
+
+  const eliminarFotoExistente = (fotoId) => {
+    setFotosAEliminar([...fotosAEliminar, fotoId]);
+  };
+
+  const eliminarNuevaFoto = (index) => {
+    const nuevas = [...nuevasFotos];
+    nuevas.splice(index, 1);
+    setNuevasFotos(nuevas);
+  };
+
   const handleSave = async () => {
     try {
       setGuardando(true);
       setError("");
       
       const token = localStorage.getItem("token");
+      
+      // 1. Actualizar datos de la solicitud
       const response = await axios.put(
         `/solicitudes/${solicitud.solicitud_id}`,
         formData,
@@ -123,12 +147,39 @@ const PerfilArtesano = () => {
         }
       );
 
-      if (response.status === 200) {
-        setPerfil(response.data.perfil_artesano);
-        setSolicitud(response.data.solicitud);
-        setEditando(false);
-        alert(response.data.msg);
+      // 2. Eliminar fotos marcadas para eliminar
+      for (const fotoId of fotosAEliminar) {
+        await axios.delete(`/solicitudes/fotos/${fotoId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
       }
+
+      // 3. Agregar nuevas fotos
+      if (nuevasFotos.length > 0) {
+        const formDataFotos = new FormData();
+        nuevasFotos.forEach((foto, index) => {
+          formDataFotos.append('fotos', foto);
+        });
+
+        await axios.post(
+          `/solicitudes/${solicitud.solicitud_id}/fotos`,
+          formDataFotos,
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+      }
+
+      // Recargar datos
+      await cargarDatos();
+      setEditando(false);
+      setNuevasFotos([]);
+      setFotosAEliminar([]);
+      alert("Datos actualizados exitosamente");
+      
     } catch (err) {
       const errorMessage = err.response?.data?.msg || 
                           err.response?.data?.error || 
@@ -145,6 +196,12 @@ const PerfilArtesano = () => {
 
   const cerrarImagen = () => {
     setImagenAmpliada(null);
+  };
+
+  // Función auxiliar para obtener fotos que no están marcadas para eliminar
+  const obtenerFotosVisibles = () => {
+    if (!solicitud.fotos) return [];
+    return solicitud.fotos.filter(foto => !fotosAEliminar.includes(foto.foto_id));
   };
 
   if (loading) {
@@ -168,6 +225,9 @@ const PerfilArtesano = () => {
       </div>
     );
   }
+
+  const fotosVisibles = obtenerFotosVisibles();
+  const totalFotos = fotosVisibles.length + nuevasFotos.length;
 
   return (
     <div>
@@ -274,53 +334,106 @@ const PerfilArtesano = () => {
             </div>
           </div>
 
-          {/* Información de la Solicitud - Solo lectura */}
-          <div className="seccion-datos seccion-solo-lectura">
+          {/* Información de la Solicitud - Editable */}
+          <div className="seccion-datos seccion-editable">
             <h2>Información de la Solicitud</h2>
             <div className="info-puesto">
               <div className="campo-grupo">
-                <div className="campo-solo-lectura full-width">
+                <div className="campo full-width">
                   <label>Descripción:</label>
-                  <div className="valor-solo-lectura descripcion">
-                    {solicitud.descripcion}
-                  </div>
+                  {editando ? (
+                    <textarea
+                      name="descripcion"
+                      value={formData.descripcion}
+                      onChange={handleChange}
+                      maxLength="500"
+                      rows="4"
+                      className="form-textarea"
+                    />
+                  ) : (
+                    <div className="valor-solo-lectura descripcion">
+                      {solicitud.descripcion}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="campo-grupo">
-                <div className="campo-solo-lectura">
-                  <label>Dimensiones:</label>
-                  <div className="valor-solo-lectura">
-                    {solicitud.dimensiones_ancho} m x {solicitud.dimensiones_largo} m
-                  </div>
+                <div className="campo">
+                  <label>Ancho (m):</label>
+                  {editando ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="dimensiones_ancho"
+                      value={formData.dimensiones_ancho}
+                      onChange={handleChange}
+                      min="0.1"
+                    />
+                  ) : (
+                    <div className="valor-solo-lectura">
+                      {solicitud.dimensiones_ancho} m
+                    </div>
+                  )}
                 </div>
 
-                <div className="campo-solo-lectura">
+                <div className="campo">
+                  <label>Largo (m):</label>
+                  {editando ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="dimensiones_largo"
+                      value={formData.dimensiones_largo}
+                      onChange={handleChange}
+                      min="0.1"
+                    />
+                  ) : (
+                    <div className="valor-solo-lectura">
+                      {solicitud.dimensiones_largo} m
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="campo-grupo">
+                <div className="campo">
                   <label>Parcelas necesarias:</label>
                   <div className="valor-solo-lectura">
                     {solicitud.parcelas_necesarias}
                   </div>
                 </div>
-              </div>
 
-              <div className="campo-grupo">
-                <div className="campo-solo-lectura">
+                <div className="campo">
                   <label>Costo total:</label>
                   <div className="valor-solo-lectura valor-destacado">
                     ${solicitud.costo_total}
                   </div>
                 </div>
-
-                <div className="campo-solo-lectura">
-                  <label>Rubro:</label>
-                  <div className="valor-solo-lectura">
-                    {obtenerNombreRubro()} {/* Usamos la función aquí */}
-                  </div>
-                </div>
               </div>
 
               <div className="campo-grupo">
-                <div className="campo-solo-lectura">
+                <div className="campo">
+                  <label>Rubro:</label>
+                  {editando ? (
+                    <select
+                      name="rubro_id"
+                      value={formData.rubro_id}
+                      onChange={handleChange}
+                      className="form-input"
+                    >
+                      <option value="1">Gastronomía</option>
+                      <option value="2">Artesanía</option>
+                      <option value="3">Reventa</option>
+                    </select>
+                  ) : (
+                    <div className="valor-solo-lectura">
+                      {obtenerNombreRubro()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="campo">
                   <label>Fecha de solicitud:</label>
                   <div className="valor-solo-lectura">
                     {new Date(solicitud.fecha_solicitud).toLocaleDateString('es-ES')}
@@ -330,27 +443,64 @@ const PerfilArtesano = () => {
             </div>
           </div>
 
-          {/* Fotos de la solicitud */}
-          {solicitud.fotos && solicitud.fotos.length > 0 && (
-            <div className="seccion-datos seccion-solo-lectura">
-              <h2>Fotos del Puesto ({solicitud.fotos.length})</h2>
-              <div className="galeria-fotos">
-                {solicitud.fotos.map((foto, index) => (
-                  <div 
-                    key={foto.foto_id} 
-                    className="foto-item"
-                    onClick={() => ampliarImagen(foto.image_url)}
-                  >
-                    <img 
-                      src={foto.image_url} 
-                      alt={`Foto del puesto ${index + 1}`}
-                      className="foto-puesto"
-                    />
-                  </div>
-                ))}
+          {/* Fotos de la solicitud - Editable */}
+          <div className="seccion-datos seccion-editable">
+            <h2>Fotos del Puesto ({totalFotos}/5)</h2>
+            
+            {editando && (
+              <div className="agregar-fotos">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/jpg,image/png"
+                  onChange={handleFileChange}
+                  disabled={totalFotos >= 5}
+                />
+                <small>Formatos permitidos: JPG, PNG. Máximo 5 fotos en total.</small>
               </div>
+            )}
+
+            <div className="galeria-fotos">
+              {/* Fotos existentes */}
+              {fotosVisibles.map((foto, index) => (
+                <div key={foto.foto_id} className="foto-item">
+                  <img 
+                    src={foto.image_url} 
+                    alt={`Foto del puesto ${index + 1}`}
+                    className="foto-puesto"
+                    onClick={() => ampliarImagen(foto.image_url)}
+                  />
+                  {editando && (
+                    <button 
+                      className="btn-eliminar-foto"
+                      onClick={() => eliminarFotoExistente(foto.foto_id)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              
+              {/* Nuevas fotos */}
+              {nuevasFotos.map((foto, index) => (
+                <div key={`nueva-${index}`} className="foto-item">
+                  <img 
+                    src={URL.createObjectURL(foto)} 
+                    alt={`Nueva foto ${index + 1}`}
+                    className="foto-puesto"
+                  />
+                  {editando && (
+                    <button 
+                      className="btn-eliminar-foto"
+                      onClick={() => eliminarNuevaFoto(index)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
