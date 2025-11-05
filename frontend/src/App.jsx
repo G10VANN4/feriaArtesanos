@@ -7,6 +7,7 @@ import Registro from './pages/Registro';
 import AdminDashboard from './pages/AdminDashboard';
 import Formulario from "./pages/Formulario";
 import GestionUsuarios from "./pages/GestionUsuarios";
+import PerfilArtesano from "./pages/PerfilArtesano";
 import "./styles/App.css";
 
 const PrivateRoute = ({ children }) => {
@@ -30,6 +31,7 @@ function App() {
                         <Route path="/login" element={<Login />} />
                         <Route path="/registro" element={<Registro />} />
                         <Route path="/formulario" element={<Formulario />} />
+                        <Route path="/mi-perfil" element={<PerfilArtesano />} />
 
                         
                         <Route 

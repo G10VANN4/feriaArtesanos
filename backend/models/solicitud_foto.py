@@ -1,12 +1,12 @@
 from .base import db
 from datetime import datetime
-
+from sqlalchemy.dialects.mysql import LONGTEXT
 class SolicitudFoto(db.Model):
     __tablename__ = 'Solicitud_Foto'
     
     foto_id = db.Column(db.Integer, primary_key=True)
     solicitud_id = db.Column(db.Integer, db.ForeignKey('Solicitud.solicitud_id', ondelete='CASCADE'), nullable=False)
-    base64 = db.Column(db.LargeBinary().with_variant(db.Text, 'mysql'))
+    base64 = db.Column(db.LargeBinary().with_variant(LONGTEXT, 'mysql'))
     extension = db.Column(db.String(10), nullable=False)
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
 

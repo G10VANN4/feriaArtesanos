@@ -201,6 +201,95 @@ def crear_solicitud():
         db.session.rollback()
         print("ERROR EN crear_solicitud():", str(e))
         return jsonify({'msg': 'Error interno al crear solicitud', 'error': str(e)}), 500
+    
+@solicitud_bp.route('/<int:solicitud_id>', methods=['PUT'])
+@jwt_required()
+def editar_solicitud(solicitud_id):
+    """Editar datos personales de una solicitud existente"""
+    try:
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
+        
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
+        if not artesano:
+            return jsonify({'msg': 'Perfil no encontrado'}), 404
+        
+        # Verificar que la solicitud pertenece al artesano
+        solicitud = Solicitud.query.filter_by(
+            solicitud_id=solicitud_id,
+            artesano_id=artesano.artesano_id
+        ).first()
+        
+        if not solicitud:
+            return jsonify({'msg': 'Solicitud no encontrada'}), 404
+        
+        # Solo permitir edición en estados específicos
+        estados_permitidos_edicion = ['Pendiente', 'Corrección Requerida']
+        estado_actual = EstadoSolicitud.query.get(solicitud.estado_solicitud_id)
+        
+        if estado_actual.nombre not in estados_permitidos_edicion:
+            return jsonify({
+                'msg': f'No se puede editar la solicitud en estado "{estado_actual.nombre}"'
+            }), 400
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'msg': 'Datos no proporcionados'}), 400
+        
+        # Solo permitir editar estos campos
+        campos_editables = ['nombre', 'telefono', 'dni']
+        cambios_realizados = False
+        
+        # Validar y actualizar campos del artesano
+        if 'nombre' in data and data['nombre']:
+            if len(data['nombre']) > 20:
+                return jsonify({'msg': 'El nombre no puede tener más de 20 caracteres'}), 400
+            if artesano.nombre != data['nombre']:
+                artesano.nombre = data['nombre']
+                cambios_realizados = True
+        
+        if 'telefono' in data and data['telefono']:
+            if len(data['telefono']) > 20:
+                return jsonify({'msg': 'El teléfono no puede tener más de 20 caracteres'}), 400
+            if artesano.telefono != data['telefono']:
+                artesano.telefono = data['telefono']
+                cambios_realizados = True
+        
+        if 'dni' in data and data['dni']:
+            if len(str(data['dni'])) > 8:
+                return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
+            
+            # Verificar que el DNI no esté siendo usado por otro artesano
+            dni_existente = Artesano.query.filter(
+                Artesano.dni == data['dni'],
+                Artesano.artesano_id != artesano.artesano_id
+            ).first()
+            
+            if dni_existente:
+                return jsonify({'msg': 'El DNI ya está registrado por otro artesano'}), 400
+            
+            if artesano.dni != data['dni']:
+                artesano.dni = data['dni']
+                cambios_realizados = True
+        
+        if cambios_realizados:
+            # Actualizar fecha de modificación
+            solicitud.fecha_gestion = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'msg': 'Datos actualizados exitosamente',
+                'perfil_artesano': artesano.to_dict(),
+                'solicitud': solicitud.to_dict()
+            }), 200
+        else:
+            return jsonify({'msg': 'No se realizaron cambios'}), 200
+            
+    except Exception as e:
+        db.session.rollback()
+        print("ERROR EN editar_solicitud():", str(e))
+        return jsonify({'msg': 'Error interno al actualizar solicitud', 'error': str(e)}), 500
 
 @solicitud_bp.route('', methods=['GET'])
 @jwt_required()

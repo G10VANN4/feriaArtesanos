@@ -18,6 +18,8 @@ const Navbar = () => {
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
   const [loadingNotificaciones, setLoadingNotificaciones] = useState(false);
   const [totalNoLeidas, setTotalNoLeidas] = useState(0);
+  const [tieneSolicitud, setTieneSolicitud] = useState(false);
+  const [cargandoSolicitud, setCargandoSolicitud] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -38,8 +40,28 @@ const Navbar = () => {
   useEffect(() => {
     if (isAuthenticated && user?.rol_id === 1) {
       cargarNotificaciones();
+      verificarSolicitud();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, location.pathname]);
+
+  const verificarSolicitud = async () => {
+    if (isAuthenticated && user?.rol_id === 1) {
+      try {
+        setCargandoSolicitud(true);
+        const token = localStorage.getItem("token");
+        const response = await axios.get("/solicitudes", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setTieneSolicitud(!!response.data.solicitud);
+      } catch (error) {
+        console.error("Error verificando solicitud:", error);
+        setTieneSolicitud(false);
+      } finally {
+        setCargandoSolicitud(false);
+      }
+    }
+  };
 
   const cargarNotificaciones = async () => {
     try {
@@ -55,6 +77,7 @@ const Navbar = () => {
       setLoadingNotificaciones(false);
     }
   };
+
   const marcarComoLeida = async (notificacionId) => {
     try {
       await axios.put(`/api/v1/artesano/notificaciones/${notificacionId}/marcar-leida`);
@@ -153,9 +176,17 @@ const Navbar = () => {
         <Link to="/">Inicio</Link>
         
         {isAuthenticated && user?.rol_id === 1 && location.pathname === "/" && (
-          <Link to="/formulario" className="btn-formulario">
-            Formulario
-          </Link>
+          !cargandoSolicitud && (
+            tieneSolicitud ? (
+              <Link to="/mi-perfil" className="btn-formulario">
+                Mi Perfil
+              </Link>
+            ) : (
+              <Link to="/formulario" className="btn-formulario">
+                Formulario
+              </Link>
+            )
+          )
         )}
         
         <a href="#contacto">Contacto</a>
