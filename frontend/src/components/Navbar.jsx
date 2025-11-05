@@ -173,7 +173,9 @@ const Navbar = () => {
       </div>
       
       <nav className="navbar-links">
-        <Link to="/">Inicio</Link>
+        {location.pathname !== "/" && (
+          <Link to="/">Inicio</Link>
+        )}
         
         {isAuthenticated && user?.rol_id === 1 && location.pathname === "/" && (
           !cargandoSolicitud && (

@@ -53,31 +53,41 @@ const PerfilArtesano = () => {
     }
   };
 
-  // Función para obtener el nombre del rubro
   const obtenerNombreRubro = () => {
     if (!solicitud) return "No especificado";
-    
-    // Prueba diferentes posibles nombres de campo
-    const posiblesCampos = [
-      'rubro_nombre',
-      'rubro',
-      'nombre_rubro', 
-      'tipo_rubro',
-      'categoria',
-      'rubroNombre'
+      
+    const rubro = [
+      'rubro_id'
     ];
-    
-    for (let campo of posiblesCampos) {
-      if (solicitud[campo]) {
-        console.log(`Rubro encontrado en campo: ${campo} = ${solicitud[campo]}`); // DEBUG
-        return solicitud[campo];
+    let rubroId = null;
+    for (let campo of rubro) {
+      if (solicitud[campo] !== undefined && solicitud[campo] !== null) {
+        rubroId = solicitud[campo];
+         break;
       }
     }
-    
-    console.log("No se encontró el campo del rubro en:", solicitud); // DEBUG
-    return "No especificado";
+
+    if (rubroId === null) {
+      const rubro = ['rubro_nombre', 'nombre_rubro', 'rubro_nombre'];
+      for (let campo of rubro) {
+        if (solicitud[campo]) {
+          return solicitud[campo];
+        }
+      }
+      return "No especificado";
+    }
+      
+      
+    const rubros = {
+      1: "Gastronomía",
+      2: "Reventa", 
+      3: "Artesanía"
+    };
+      
+    return rubros[rubroId] || "No especificado";
   };
 
+  
   const handleEdit = () => {
     setEditando(true);
   };
