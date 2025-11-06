@@ -184,7 +184,6 @@ const HistorialSolicitudes = () => {
         <div className="historial-contenido">
           <div className="historial-header">
             <h1>Historial de Solicitudes</h1>
-            <p>Aquí puedes ver todas tus solicitudes anteriores</p>
           </div>
 
           {error && <div className="mensaje-error">{error}</div>}
