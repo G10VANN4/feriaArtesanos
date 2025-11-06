@@ -15,8 +15,7 @@ import {
   FiX,
   FiSettings,
   FiPieChart,
-  FiDollarSign,
-  FiEdit
+  FiDollarSign
 } from "react-icons/fi";
 import axios from "axios";
 import "../styles/App.css";
@@ -51,21 +50,25 @@ const Dashboard = () => {
   const [filtroRubro, setFiltroRubro] = useState('all');
 
   const [editId, setEditId] = useState(null);
-  const [editData, setEditData] = useState({ estado_solicitud: "Pendiente", notas_admin: "" });
+  const [editData, setEditData] = useState({ 
+    estado_solicitud: "Pendiente", 
+    notas_admin: "",
+    rubro_id: 1,
+    descripcion_puesto: ""
+  });
   const [solicitudDetails, setSolicitudDetails] = useState(null);
   const [activeSolicitudId, setActiveSolicitudId] = useState(null);
   
   // Estado para el modal de imagen ampliada
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
 
-  // NUEVOS ESTADOS PARA LAS FUNCIONALIDADES REQUERIDAS
-  const [modificarModal, setModificarModal] = useState(null);
+  // Estados para las nuevas funcionalidades
   const [configuracionesRubros, setConfiguracionesRubros] = useState([]);
   const [diversidadRubros, setDiversidadRubros] = useState([]);
   const [showConfiguracion, setShowConfiguracion] = useState(false);
   const [showDiversidad, setShowDiversidad] = useState(false);
 
-  // Función para reconstruir URLs de fotos - CORREGIDA
+  // Función para reconstruir URLs de fotos
   const reconstruirFotos = (solicitudData) => {
     const fotos = [];
     
@@ -75,13 +78,10 @@ const Dashboard = () => {
     if (solicitudData.fotos && Array.isArray(solicitudData.fotos)) {
       solicitudData.fotos.forEach((foto, index) => {
         if (foto) {
-          // Si es base64 (data URL), usarlo directamente
-          // Si es una ruta de archivo, construir la URL completa
           let fotoUrl = foto;
           if (foto.startsWith('/uploads/') || foto.startsWith('uploads/')) {
             fotoUrl = `${API_BASE_URL.replace('/api/v1', '')}${foto.startsWith('/') ? '' : '/'}${foto}`;
           }
-          // Si ya es base64 o URL completa, usar directamente
           
           fotos.push({
             foto_id: `existente_${index}`,
@@ -99,7 +99,6 @@ const Dashboard = () => {
         fotoPuestoUrl = `${API_BASE_URL.replace('/api/v1', '')}${solicitudData.foto_puesto.startsWith('/') ? '' : '/'}${solicitudData.foto_puesto}`;
       }
       
-      // Verificar si ya existe en las fotos para evitar duplicados
       const yaExiste = fotos.some(foto => foto.image_url === fotoPuestoUrl);
       
       if (!yaExiste) {
@@ -114,8 +113,6 @@ const Dashboard = () => {
     console.log("Fotos reconstruidas:", fotos);
     return fotos;
   };
-
-  // NUEVAS FUNCIONES PARA LAS FUNCIONALIDADES REQUERIDAS
 
   // RF17: Cargar configuraciones de rubros
   const fetchConfiguracionesRubros = async () => {
@@ -147,73 +144,6 @@ const Dashboard = () => {
     }
   };
 
-  // RF13: Modificar información del puesto
-  const handleModificarClick = (solicitud) => {
-    setModificarModal({
-      id: solicitud.id,
-      datos: {
-        rubro_id: solicitud.rubro_id || 1,
-        dimensiones_largo: solicitud.alto || 0,
-        dimensiones_ancho: solicitud.ancho || 0,
-        descripcion: solicitud.descripcion_puesto || "",
-        comentarios_admin: solicitud.originalData?.notas_admin || ""
-      }
-    });
-  };
-
-  const handleGuardarModificacion = async () => {
-    const token = localStorage.getItem("access_token");
-    if (!token || !modificarModal) return;
-
-    try {
-      const response = await axios.patch(
-        `${API_BASE_URL}/solicitudes/${modificarModal.id}/modificar`,
-        modificarModal.datos,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
-        }
-      );
-
-      alert("Información del puesto modificada correctamente. El artesano ha sido notificado.");
-      setModificarModal(null);
-      fetchSolicitudes();
-    } catch (error) {
-      console.error("Error al modificar la información:", error);
-      alert("Error al modificar la información: " + (error.response?.data?.msg || error.message));
-    }
-  };
-
-  // RF17: Actualizar configuración de rubro
-  const handleActualizarConfiguracion = async (rubroId, nuevosDatos) => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
-
-    try {
-      await axios.put(
-        `${API_BASE_URL}/configuraciones/rubros/${rubroId}`,
-        nuevosDatos,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
-        }
-      );
-
-      alert("Configuración actualizada correctamente");
-      fetchConfiguracionesRubros();
-      fetchDiversidadRubros();
-    } catch (error) {
-      console.error("Error al actualizar configuración:", error);
-      alert("Error al actualizar configuración: " + (error.response?.data?.msg || error.message));
-    }
-  };
-
-  // FUNCIONES EXISTENTES (NO MODIFICADAS)
-
   // Función para cargar estadísticas de TODAS las solicitudes por rubro
   const fetchRubrosStatsTodas = async () => {
     const token = localStorage.getItem("access_token");
@@ -244,14 +174,6 @@ const Dashboard = () => {
     }
   };
 
-  // Función para cargar estadísticas generales (para mantener compatibilidad)
-  const fetchRubrosStats = async () => {
-    await Promise.all([
-      fetchRubrosStatsTodas(),
-      fetchRubrosStatsAprobadas()
-    ]);
-  };
-
   const fetchSolicitudes = useCallback(async () => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -280,8 +202,8 @@ const Dashboard = () => {
           id: item.id,
           nombre: item.nombre,
           rubro: item.rubro,
-          alto: item.originalData?.alto,
-          ancho: item.originalData?.ancho,
+          alto: item.originalData?.alto || 0,
+          ancho: item.originalData?.ancho || 0,
           dimensiones: item.dimensiones,
           email: item.originalData?.email,
           dni: item.originalData?.dni,
@@ -291,6 +213,7 @@ const Dashboard = () => {
           fecha_creacion: item.originalData?.fecha_solicitud,
           artesano_id: item.artesano_id,
           estado: item.estado,
+          rubro_id: item.originalData?.rubro_id || 1,
           fotosReconstruidas: fotosReconstruidas
         };
       });
@@ -309,7 +232,6 @@ const Dashboard = () => {
     fetchSolicitudes();
     fetchRubrosStatsTodas();
     fetchRubrosStatsAprobadas();
-    // Cargar las nuevas funcionalidades
     fetchConfiguracionesRubros();
     fetchDiversidadRubros();
   }, [fetchSolicitudes]);
@@ -325,7 +247,6 @@ const Dashboard = () => {
         responseType: 'blob'
       });
 
-      // Crear URL del blob y descargar
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -348,12 +269,15 @@ const Dashboard = () => {
     return s.rubro === filtroRubro;
   });
 
+  // Función unificada para editar (estado, rubro y descripción)
   const handleEditClick = (solicitud) => {
     setActiveSolicitudId(solicitud.id);
     setEditId(solicitud.id);
     setEditData({
       estado_solicitud: solicitud.estado,
       notas_admin: solicitud.originalData?.notas_admin || "",
+      rubro_id: solicitud.rubro_id || 1,
+      descripcion_puesto: solicitud.descripcion_puesto || ""
     });
   };
 
@@ -363,9 +287,13 @@ const Dashboard = () => {
     if (!token || !idToUpdate) return;
     
     try {
-      const response = await axios.patch(
+      // Primero actualizar el estado y notas
+      await axios.patch(
         `${API_BASE_URL}/solicitudes/${idToUpdate}/estado`,
-        editData,
+        {
+          estado_solicitud: editData.estado_solicitud,
+          notas_admin: editData.notas_admin
+        },
         { 
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -374,11 +302,26 @@ const Dashboard = () => {
         }
       );
 
-      alert(`Estado de Solicitud ID ${idToUpdate} actualizado a ${editData.estado_solicitud}.`);
+      // Luego actualizar rubro y descripción si han cambiado
+      await axios.patch(
+        `${API_BASE_URL}/solicitudes/${idToUpdate}/modificar`,
+        {
+          rubro_id: editData.rubro_id,
+          descripcion: editData.descripcion_puesto
+        },
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
+
+      alert(`Solicitud ID ${idToUpdate} actualizada correctamente.`);
       handleCancelEdit();
       fetchSolicitudes();
-      // Actualizar estadísticas después de cambiar estado
-      fetchRubrosStats();
+      fetchRubrosStatsTodas();
+      fetchRubrosStatsAprobadas();
     } catch (error) {
       console.error("Error al actualizar la solicitud:", error);
       alert("Error al actualizar la solicitud: " + (error.response?.data?.msg || error.message));
@@ -407,7 +350,8 @@ const Dashboard = () => {
 
       alert(`Solicitud ID ${id} rechazada correctamente.`);
       fetchSolicitudes();
-      fetchRubrosStats();
+      fetchRubrosStatsTodas();
+      fetchRubrosStatsAprobadas();
     } catch (error) {
       console.error("Error al rechazar:", error);
       alert("Error al rechazar la solicitud: " + (error.response?.data?.msg || error.message));
@@ -439,7 +383,12 @@ const Dashboard = () => {
   const handleCancelEdit = () => {
     setEditId(null);
     setActiveSolicitudId(null);
-    setEditData({ estado_solicitud: "Pendiente", notas_admin: "" });
+    setEditData({ 
+      estado_solicitud: "Pendiente", 
+      notas_admin: "",
+      rubro_id: 1,
+      descripcion_puesto: ""
+    });
   };
 
   const formatDimensiones = (solicitud) => {
@@ -450,6 +399,34 @@ const Dashboard = () => {
       return solicitud.dimensiones;
     }
     return 'N/A';
+  };
+
+  // RF17: Actualizar configuración de rubro
+  const handleActualizarConfiguracion = async (rubroId, nuevosDatos) => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      await axios.put(
+        `${API_BASE_URL}/configuraciones/rubros/${rubroId}`,
+        nuevosDatos,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
+
+      alert("Configuración actualizada correctamente");
+      fetchConfiguracionesRubros();
+      fetchDiversidadRubros();
+      fetchRubrosStatsTodas();
+      fetchRubrosStatsAprobadas();
+    } catch (error) {
+      console.error("Error al actualizar configuración:", error);
+      alert("Error al actualizar configuración: " + (error.response?.data?.msg || error.message));
+    }
   };
 
   // Funciones para el modal de imagen ampliada
@@ -477,17 +454,16 @@ const Dashboard = () => {
             <p>Administrá, filtrá y gestioná las solicitudes enviadas por los artesanos.</p>
           </div>
           
-          {/* NUEVOS BOTONES PARA LAS FUNCIONALIDADES REQUERIDAS */}
           <div className="header-actions">
             <button 
-              className="btn-configuracion"
+              className={`btn-configuracion ${showConfiguracion ? 'active' : ''}`}
               onClick={() => setShowConfiguracion(!showConfiguracion)}
             >
               <FiSettings size={18} />
               Configurar Rubros
             </button>
             <button 
-              className="btn-diversidad"
+              className={`btn-diversidad ${showDiversidad ? 'active' : ''}`}
               onClick={() => setShowDiversidad(!showDiversidad)}
             >
               <FiPieChart size={18} />
@@ -496,7 +472,7 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* NUEVO PANEL: Configuración de Rubros (RF17) */}
+        {/* Panel: Configuración de Rubros (RF17) */}
         {showConfiguracion && (
           <div className="configuracion-panel">
             <h3>Configuración de Precios y Límites por Rubro</h3>
@@ -511,11 +487,11 @@ const Dashboard = () => {
                         type="number"
                         min="0"
                         step="0.01"
-                        value={config.precio_base}
+                        value={config.precio_base || 0}
                         onChange={(e) => {
                           const nuevasConfigs = [...configuracionesRubros];
                           const index = nuevasConfigs.findIndex(c => c.rubro_id === config.rubro_id);
-                          nuevasConfigs[index].precio_base = parseFloat(e.target.value);
+                          nuevasConfigs[index].precio_base = parseFloat(e.target.value) || 0;
                           setConfiguracionesRubros(nuevasConfigs);
                         }}
                       />
@@ -557,7 +533,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* NUEVO PANEL: Diversidad de Rubros (RF14) */}
+        {/* Panel: Diversidad de Rubros (RF14) */}
         {showDiversidad && (
           <div className="diversidad-panel">
             <h3>Diversidad por Categorías - Estado de Límites</h3>
@@ -598,7 +574,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* CONTENIDO EXISTENTE - SIN MODIFICACIONES */}
+        {/* Listado de Solicitudes */}
         <div className="listado-usuarios-section">
           <div className="listado-header">
             <h2>Listado de Solicitudes</h2>
@@ -653,7 +629,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Barra de Filtros por Rubro con Contadores */}
+          {/* Filtros por Rubro */}
           <div className="filtros-rubro-container">
             <div className="filtros-rubro-header">
               <div className="filtros-rubro-titulo">
@@ -683,38 +659,19 @@ const Dashboard = () => {
                 <span className="contador-rubro total">({solicitudes.length})</span>
               </button>
               
-              <button 
-                className={`filtro-rubro-btn ${filtroRubro === 'Artesanías' ? 'active' : ''}`}
-                onClick={() => setFiltroRubro('Artesanías')}
-              >
-                Artesanías
-                <div className="contadores-dobles">
-                  <span className="contador-total">{rubrosStatsTodas['Artesanías'] || 0}</span>
-                  <span className="contador-aprobadas">/{rubrosStatsAprobadas['Artesanías'] || 0}✓</span>
-                </div>
-              </button>
-              
-              <button 
-                className={`filtro-rubro-btn ${filtroRubro === 'Gastronomía' ? 'active' : ''}`}
-                onClick={() => setFiltroRubro('Gastronomía')}
-              >
-                Gastronomía
-                <div className="contadores-dobles">
-                  <span className="contador-total">{rubrosStatsTodas['Gastronomía'] || 0}</span>
-                  <span className="contador-aprobadas">/{rubrosStatsAprobadas['Gastronomía'] || 0}✓</span>
-                </div>
-              </button>
-              
-              <button 
-                className={`filtro-rubro-btn ${filtroRubro === 'Reventa' ? 'active' : ''}`}
-                onClick={() => setFiltroRubro('Reventa')}
-              >
-                Reventa
-                <div className="contadores-dobles">
-                  <span className="contador-total">{rubrosStatsTodas['Reventa'] || 0}</span>
-                  <span className="contador-aprobadas">/{rubrosStatsAprobadas['Reventa'] || 0}✓</span>
-                </div>
-              </button>
+              {Object.keys(RUBROS).map(rubro => (
+                <button 
+                  key={rubro}
+                  className={`filtro-rubro-btn ${filtroRubro === rubro ? 'active' : ''}`}
+                  onClick={() => setFiltroRubro(rubro)}
+                >
+                  {rubro}
+                  <div className="contadores-dobles">
+                    <span className="contador-total">{rubrosStatsTodas[rubro] || 0}</span>
+                    <span className="contador-aprobadas">/{rubrosStatsAprobadas[rubro] || 0}✓</span>
+                  </div>
+                </button>
+              ))}
             </div>
             <div className="filtros-leyenda">
               <span className="leyenda-item">
@@ -759,7 +716,7 @@ const Dashboard = () => {
                       </td>
                       <td>
                         <span
-                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white rubro-badge ${
                             RUBROS[s.rubro]?.badgeColor || "bg-gray-500"
                           }`}
                         >
@@ -771,7 +728,7 @@ const Dashboard = () => {
                       </td>
                       <td>
                         <span
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${
+                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white estado-badge ${
                             ESTADOS[s.estado]?.badge || "bg-black"
                           } flex items-center gap-1`}
                         >
@@ -780,26 +737,16 @@ const Dashboard = () => {
                       </td>
                       <td>
                         <div className="acciones-container">
+                          {/* SOLO UN BOTÓN DE EDITAR QUE INCLUYE TODO */}
                           <button 
                             className="btn-editar"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEditClick(s);
                             }}
-                            title="Editar estado"
+                            title="Editar estado, rubro y comentarios"
                           >
                             <FiEdit3 size={14} />
-                          </button>
-                          {/* NUEVO BOTÓN: Modificar información (RF13) */}
-                          <button 
-                            className="btn-modificar"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleModificarClick(s);
-                            }}
-                            title="Modificar información del puesto"
-                          >
-                            <FiEdit size={14} />
                           </button>
                           <button 
                             className="btn-eliminar"
@@ -837,7 +784,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* SECCIÓN DE ESTADÍSTICAS DEBAJO DE LA LISTA */}
+        {/* Sección de Estadísticas */}
         <div className="estadisticas-section">
           <EstadisticasUsuarios />
         </div>
@@ -847,11 +794,10 @@ const Dashboard = () => {
         © {new Date().getFullYear()} Feria Artesanal — Todos los derechos reservados.
       </footer>
 
-      {/* MODALES EXISTENTES - SIN MODIFICACIONES */}
-
+      {/* Modal de Edición Unificado - AHORA INCLUYE TODO */}
       {editId && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content modal-wide">
             <div className="modal-header">
               <h2>✍️ Gestionar Solicitud ID: {editId}</h2>
               <button 
@@ -865,7 +811,6 @@ const Dashboard = () => {
             <div className="form-group">
               <label className="form-label">Estado de Solicitud</label>
               <select
-                name="estado_solicitud"
                 value={editData.estado_solicitud}
                 onChange={(e) =>
                   setEditData({ ...editData, estado_solicitud: e.target.value })
@@ -881,9 +826,36 @@ const Dashboard = () => {
             </div>
 
             <div className="form-group">
+              <label className="form-label">Rubro</label>
+              <select
+                value={editData.rubro_id}
+                onChange={(e) =>
+                  setEditData({ ...editData, rubro_id: parseInt(e.target.value) })
+                }
+                className="form-input"
+              >
+                <option value={1}>Artesanías</option>
+                <option value={2}>Gastronomía</option>
+                <option value={3}>Reventa</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Descripción del Puesto</label>
+              <textarea
+                value={editData.descripcion_puesto}
+                onChange={(e) =>
+                  setEditData({ ...editData, descripcion_puesto: e.target.value })
+                }
+                rows={3}
+                placeholder="Descripción del puesto del artesano..."
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Notas del Administrador</label>
               <textarea
-                name="notas_admin"
                 value={editData.notas_admin}
                 onChange={(e) =>
                   setEditData({ ...editData, notas_admin: e.target.value })
@@ -909,6 +881,7 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Modal de Detalles */}
       {solicitudDetails && (
         <div className="modal-overlay">
           <div className="modal-content modal-wide">
@@ -941,7 +914,7 @@ const Dashboard = () => {
               <div className="detalle-item">
                 <strong>Rubro:</strong> 
                 <span
-                  className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white ${
+                  className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white rubro-badge ${
                     RUBROS[solicitudDetails.rubro]?.badgeColor || "bg-gray-500"
                   }`}
                 >
@@ -961,7 +934,7 @@ const Dashboard = () => {
               <div className="detalle-item">
                 <strong>Estado:</strong> 
                 <span
-                  className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white ${
+                  className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white estado-badge ${
                     ESTADOS[solicitudDetails.estado]?.badge || "bg-gray-500"
                   }`}
                 >
@@ -978,7 +951,6 @@ const Dashboard = () => {
                 </span>
               </div>
               
-              {/* SECCIÓN DE FOTOS RECONSTRUIDAS - CORREGIDA */}
               {solicitudDetails.fotos && solicitudDetails.fotos.length > 0 && (
                 <div className="detalle-foto-section">
                   <strong>Fotos del Puesto:</strong>
@@ -1009,7 +981,6 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {/* Fallback para foto_puesto individual si no hay fotos reconstruidas */}
               {(!solicitudDetails.fotos || solicitudDetails.fotos.length === 0) && solicitudDetails.foto_puesto && (
                 <div className="detalle-foto-section">
                   <strong>Foto del Puesto:</strong>
@@ -1061,107 +1032,6 @@ const Dashboard = () => {
                 className="btn-secondary"
               >
                 Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NUEVO MODAL: Modificar información del puesto (RF13) */}
-      {modificarModal && (
-        <div className="modal-overlay">
-          <div className="modal-content modal-wide">
-            <div className="modal-header">
-              <h2>✏️ Modificar Información del Puesto ID: {modificarModal.id}</h2>
-              <button 
-                className="btn-cerrar"
-                onClick={() => setModificarModal(null)}
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Rubro</label>
-              <select
-                value={modificarModal.datos.rubro_id}
-                onChange={(e) => setModificarModal({
-                  ...modificarModal,
-                  datos: {...modificarModal.datos, rubro_id: parseInt(e.target.value)}
-                })}
-                className="form-input"
-              >
-                <option value={1}>Artesanías</option>
-                <option value={2}>Gastronomía</option>
-                <option value={3}>Reventa</option>
-              </select>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Largo (m)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={modificarModal.datos.dimensiones_largo}
-                  onChange={(e) => setModificarModal({
-                    ...modificarModal,
-                    datos: {...modificarModal.datos, dimensiones_largo: parseFloat(e.target.value)}
-                  })}
-                  className="form-input"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Ancho (m)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={modificarModal.datos.dimensiones_ancho}
-                  onChange={(e) => setModificarModal({
-                    ...modificarModal,
-                    datos: {...modificarModal.datos, dimensiones_ancho: parseFloat(e.target.value)}
-                  })}
-                  className="form-input"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Descripción del Puesto</label>
-              <textarea
-                value={modificarModal.datos.descripcion}
-                onChange={(e) => setModificarModal({
-                  ...modificarModal,
-                  datos: {...modificarModal.datos, descripcion: e.target.value}
-                })}
-                rows={3}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Motivo de la Modificación</label>
-              <textarea
-                value={modificarModal.datos.comentarios_admin}
-                onChange={(e) => setModificarModal({
-                  ...modificarModal,
-                  datos: {...modificarModal.datos, comentarios_admin: e.target.value}
-                })}
-                rows={2}
-                placeholder="Explique el motivo de los cambios..."
-                className="form-input"
-              />
-              <small className="form-help">
-                Este mensaje será enviado como notificación al artesano.
-              </small>
-            </div>
-
-            <div className="modal-actions">
-              <button onClick={() => setModificarModal(null)} className="btn-secondary">
-                Cancelar
-              </button>
-              <button onClick={handleGuardarModificacion} className="btn-primary">
-                Guardar Cambios y Notificar
               </button>
             </div>
           </div>
