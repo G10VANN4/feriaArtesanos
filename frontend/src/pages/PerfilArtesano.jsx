@@ -13,6 +13,8 @@ const PerfilArtesano = () => {
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const [nuevasFotos, setNuevasFotos] = useState([]);
   const [fotosAEliminar, setFotosAEliminar] = useState([]);
+  const [cancelando, setCancelando] = useState(false);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   
   const [formData, setFormData] = useState({
     nombre: "",
@@ -190,6 +192,37 @@ const PerfilArtesano = () => {
     }
   };
 
+  // Función para cancelar la solicitud
+  const handleCancelarSolicitud = async () => {
+    try {
+      setCancelando(true);
+      setError("");
+      
+      const token = localStorage.getItem("token");
+      
+      const response = await axios.delete(
+        `/solicitudes/${solicitud.solicitud_id}/cancelar`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      // Mostrar mensaje de éxito
+      alert(response.data.message || "Solicitud cancelada exitosamente");
+      
+      // Redirigir o recargar la página
+      window.location.reload(); // O redirigir a otra página
+      
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 
+                          "Error al cancelar la solicitud";
+      setError(errorMessage);
+    } finally {
+      setCancelando(false);
+      setMostrarConfirmacion(false);
+    }
+  };
+
   const ampliarImagen = (imageUrl) => {
     setImagenAmpliada(imageUrl);
   };
@@ -244,6 +277,32 @@ const PerfilArtesano = () => {
               src={imagenAmpliada} 
               alt="Imagen ampliada del puesto"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para cancelar solicitud */}
+      {mostrarConfirmacion && (
+        <div className="modal-overlay">
+          <div className="modal-confirmacion">
+            <h3>¿Estás seguro de que quieres cancelar esta solicitud?</h3>
+            <p>Esta acción no se puede deshacer. Se eliminarán todos los datos de tu solicitud.</p>
+            <div className="modal-botones">
+              <button 
+                className="btn-confirmar-cancelar"
+                onClick={handleCancelarSolicitud}
+                disabled={cancelando}
+              >
+                {cancelando ? "Cancelando..." : "Sí, cancelar solicitud"}
+              </button>
+              <button 
+                className="btn-cancelar-modal"
+                onClick={() => setMostrarConfirmacion(false)}
+                disabled={cancelando}
+              >
+                No, mantener solicitud
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -500,6 +559,23 @@ const PerfilArtesano = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Botón para cancelar solicitud */}
+          <div className="seccion-cancelar">
+            <div className="advertencia-cancelar">
+              <h3>Cancelar Solicitud</h3>
+              <p>
+                Si cancelas esta solicitud, se eliminarán todos los datos asociados 
+                y no podrás recuperarlos. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <button 
+              className="btn-cancelar-solicitud"
+              onClick={() => setMostrarConfirmacion(true)}
+            >
+              Cancelar Solicitud
+            </button>
           </div>
         </div>
       </div>

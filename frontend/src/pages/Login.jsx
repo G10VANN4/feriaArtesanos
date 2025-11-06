@@ -77,7 +77,7 @@ const Login = () => {
               marginTop: "1rem",
             }}
           >
-            {/* ✅ BOTONES SEGÚN ROL */}
+            {/* BOTONES SEGÚN ROL */}
             {user?.rol_id === 2 ? (
               <button onClick={() => navigate("/dashboard")} className="login-button">
                 Ir al Dashboard

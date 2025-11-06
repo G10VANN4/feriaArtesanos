@@ -3181,3 +3181,385 @@ h3 {
 .form-help {
   line-height: 1.4;
 }
+
+
+/* Estilos para la sección de cancelar solicitud */
+.seccion-cancelar {
+  margin-top: 3rem;
+  padding: 2rem;
+  border: 2px solid #ff6b6b;
+  border-radius: 10px;
+  background-color: #fff5f5;
+  text-align: center;
+}
+
+.advertencia-cancelar h3 {
+  color: #e53e3e;
+  margin-bottom: 1rem;
+}
+
+.advertencia-cancelar p {
+  color: #718096;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.btn-cancelar-solicitud {
+  background-color: #e53e3e;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-cancelar-solicitud:hover {
+  background-color: #c53030;
+}
+
+.btn-cancelar-solicitud:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+/* Modal de confirmación */
+.modal-confirmacion {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-confirmacion h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.modal-confirmacion p {
+  color: #718096;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.modal-botones {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn-confirmar-cancelar {
+  background-color: #e53e3e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-confirmar-cancelar:hover {
+  background-color: #c53030;
+}
+
+.btn-confirmar-cancelar:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.btn-cancelar-modal {
+  background-color: #a0aec0;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-cancelar-modal:hover {
+  background-color: #718096;
+}
+
+.btn-cancelar-modal:disabled {
+  background-color: #cbd5e0;
+  cursor: not-allowed;
+}
+
+/* Estilos para el botón de historial en el navbar */
+.btn-historial {
+  color: #8B4513;
+  padding: 10px 20px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+/* Estilos para el historial de solicitudes */
+.historial-solicitudes {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  padding: 2rem;
+}
+
+.historial-contenido {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.historial-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.historial-header h1 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.historial-header p {
+  color: #718096;
+  font-size: 1.1rem;
+}
+
+/* Lista de solicitudes */
+.lista-solicitudes {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+}
+
+.tarjeta-solicitud {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #8B4513;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tarjeta-solicitud:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.tarjeta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.tarjeta-titulo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tarjeta-titulo h3 {
+  margin: 0;
+  color: #2d3748;
+}
+
+.tarjeta-fecha {
+  color: #718096;
+  font-size: 0.9rem;
+}
+
+.tarjeta-contenido {
+  margin-bottom: 1.5rem;
+}
+
+.tarjeta-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.info-item {
+  color: #4a5568;
+  font-size: 0.95rem;
+}
+
+.tarjeta-descripcion {
+  color: #718096;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.tarjeta-fotos {
+  color: #718096;
+  font-size: 0.9rem;
+}
+
+.tarjeta-acciones {
+  text-align: right;
+}
+
+.btn-ver-detalle {
+  background-color: #8B4513;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.btn-ver-detalle:hover {
+  background-color: #654321;
+}
+
+/* Estados de las solicitudes */
+.badge-estado {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.estado-pendiente {
+  background-color: #fff3cd;
+  color: #ffc107;
+}
+
+.estado-aprobada {
+  background-color: #d1edff;
+  color: #28a745;
+}
+
+.estado-rechazada {
+  background-color: #f8d7da;
+  color: #dc3545;
+}
+
+.estado-cancelada {
+  background-color: #e2e3e5;
+  color:  #6c757d;
+}
+
+
+/* Modal de detalle */
+.modal-detalle-solicitud {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.detalle-contenido {
+  margin-top: 1.5rem;
+}
+
+.detalle-contenido .campo-grupo {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detalle-contenido .campo {
+  margin-bottom: 1rem;
+}
+
+.detalle-contenido label {
+  font-weight: 600;
+  color: #2d3748;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.detalle-contenido span {
+  color: #4a5568;
+}
+
+.valor-descripcion {
+  background-color: #f7fafc;
+  padding: 1rem;
+  border-radius: 5px;
+  border-left: 3px solid #8B4513;
+  line-height: 1.5;
+}
+
+.valor-destacado {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 1.1rem;
+}
+
+/* Galería de fotos en detalle */
+.seccion-fotos {
+  margin-top: 2rem;
+}
+
+.galeria-fotos-detalle {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.foto-item-detalle {
+  position: relative;
+}
+
+.foto-puesto-detalle {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+}
+
+/* Estados sin solicitudes */
+.sin-solicitudes {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.sin-solicitudes h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.sin-solicitudes p {
+  color: #718096;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lista-solicitudes {
+    grid-template-columns: 1fr;
+  }
+  
+  .tarjeta-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .tarjeta-info {
+    grid-template-columns: 1fr;
+  }
+  
+  .historial-solicitudes {
+    padding: 1rem;
+  }
+}

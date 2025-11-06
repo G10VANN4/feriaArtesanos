@@ -283,7 +283,6 @@ const GestionUsuarios = () => {
                   onChange={(e) => setFormData({...formData, rol_id: e.target.value})}
                   required
                 >
-                  <option value="">Seleccione rol...</option>
                   <option value="2">Administrador</option>
                   <option value="3">Organizador</option>
                 </select>
@@ -342,7 +341,6 @@ const GestionUsuarios = () => {
         <div className="listado-usuarios-section">
           <div className="listado-header">
             <h2>Listado de Usuarios</h2>
-            
             <div className="filtros-container">
               <div className="filtro-rol">
                 <button 

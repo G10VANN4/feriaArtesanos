@@ -40,10 +40,9 @@ def crear_solicitud():
         usuario = get_usuario_actual()
         if not usuario:
             return jsonify({'msg': 'Usuario no encontrado'}), 404
-        
-        # Cambiar de request.get_json() a request.form para FormData
+
         data = request.form
-        fotos_files = request.files.getlist('fotos')  # Obtener archivos
+        fotos_files = request.files.getlist('fotos') 
 
         print("DEBUG - Usuario autenticado:", usuario.usuario_id)
         print("DEBUG - Datos recibidos:", dict(data))
@@ -64,11 +63,35 @@ def crear_solicitud():
         if len(data['telefono']) > 20:
             return jsonify({'msg': 'El teléfono no puede tener más de 20 caracteres'}), 400
 
-        if Artesano.query.filter_by(dni=data['dni']).first():
-            return jsonify({'msg': 'El DNI ya está registrado'}), 400
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
 
-        if Artesano.query.filter_by(usuario_id=usuario.usuario_id).first():
-            return jsonify({'msg': 'Ya existe un perfil de artesano asociado a este usuario'}), 400
+        if not artesano:
+            if Artesano.query.filter_by(dni=data['dni']).first():
+                return jsonify({'msg': 'El DNI ya está registrado por otro artesano'}), 400
+
+            artesano = Artesano(
+                usuario_id=usuario.usuario_id,
+                nombre=data['nombre'],
+                telefono=data['telefono'],
+                dni=data['dni']
+            )
+            db.session.add(artesano)
+            db.session.flush()
+        else:
+            artesano.nombre = data['nombre']
+            artesano.telefono = data['telefono']
+            artesano.dni = data['dni']
+
+        anio_actual = datetime.utcnow().year
+        solicitud_existente = Solicitud.query.filter(
+            Solicitud.artesano_id == artesano.artesano_id,
+            db.extract('year', Solicitud.fecha_solicitud) == anio_actual
+        ).first()
+
+        if solicitud_existente:
+            return jsonify({
+                'msg': f'Ya enviaste una solicitud para participar este {anio_actual}. Solo se permite una solictud por persona por año.'
+            }), 400
 
         campos_solicitud = ['descripcion', 'dimensiones_ancho', 'dimensiones_largo', 'rubro_id']
         for campo in campos_solicitud:
@@ -85,23 +108,11 @@ def crear_solicitud():
         except ValueError:
             return jsonify({'msg': 'Las dimensiones deben ser valores numéricos válidos'}), 400
 
-        # Crear artesano
-        artesano = Artesano(
-            usuario_id=usuario.usuario_id,
-            nombre=data['nombre'],
-            telefono=data['telefono'],
-            dni=data['dni']
-        )
-        db.session.add(artesano)
-        db.session.flush()
-
-        # Verificar rubro
         rubro = Rubro.query.get(data['rubro_id'])
         if not rubro:
             db.session.rollback()
             return jsonify({'msg': 'Rubro no válido'}), 400
 
-        # Calcular parcelas y costo
         parcelas_largo = int(largo / 3)
         if largo % 3 != 0:
             parcelas_largo += 1
@@ -113,13 +124,11 @@ def crear_solicitud():
         parcelas_necesarias = parcelas_largo * parcelas_ancho
         costo_total = parcelas_necesarias * float(rubro.precio_parcela)
 
-        # Estado inicial pendiente
         estado_pendiente = EstadoSolicitud.query.filter_by(nombre='Pendiente').first()
         if not estado_pendiente:
             db.session.rollback()
             return jsonify({'msg': 'Estado "Pendiente" no configurado'}), 500
 
-        # Crear solicitud
         nueva_solicitud = Solicitud(
             artesano_id=artesano.artesano_id,
             estado_solicitud_id=estado_pendiente.estado_solicitud_id,
@@ -135,7 +144,6 @@ def crear_solicitud():
         db.session.add(nueva_solicitud)
         db.session.flush()
 
-        # Validar cantidad de fotos (máximo 5)
         if len(fotos_files) > 5:
             db.session.rollback()
             return jsonify({'msg': 'No se pueden subir más de 5 fotos por solicitud'}), 400
@@ -145,25 +153,19 @@ def crear_solicitud():
             if not foto_file or foto_file.filename == '':
                 continue
 
-            # Obtener extensión del archivo
             extension = foto_file.filename.split('.')[-1].lower()
             if extension == 'jpeg':
                 extension = 'jpg'
 
-            # Validar extensión
             if not validar_extension(extension):
                 return jsonify({'msg': f'Extensión {extension} no permitida. Solo se aceptan JPG y PNG.'}), 400
 
-            # Leer archivo y convertir a base64
             try:
                 file_data = foto_file.read()
                 base64_puro = base64.b64encode(file_data).decode('utf-8')
-                
-                # Validar base64
                 if not validar_base64(base64_puro):
                     continue
 
-                # Crear registro de foto
                 nueva_foto = SolicitudFoto(
                     solicitud_id=nueva_solicitud.solicitud_id,
                     base64=base64_puro,
@@ -171,7 +173,6 @@ def crear_solicitud():
                 )
                 db.session.add(nueva_foto)
                 fotos_creadas.append(nueva_foto)
-                
             except Exception as file_error:
                 print(f"Error procesando archivo {foto_file.filename}: {file_error}")
                 continue
@@ -182,7 +183,6 @@ def crear_solicitud():
         if parcelas_necesarias > 1:
             mensaje_notificacion = f"Su puesto requiere {parcelas_necesarias} parcelas. Costo total: ${costo_total:.2f}"
 
-        # Convertir fotos para respuesta (con image_url)
         fotos_respuesta = []
         for foto in fotos_creadas:
             foto_data = foto.to_dict()
@@ -201,6 +201,7 @@ def crear_solicitud():
         db.session.rollback()
         print("ERROR EN crear_solicitud():", str(e))
         return jsonify({'msg': 'Error interno al crear solicitud', 'error': str(e)}), 500
+
     
 @solicitud_bp.route('/<int:solicitud_id>', methods=['PUT'])
 @jwt_required()
@@ -214,8 +215,7 @@ def editar_solicitud(solicitud_id):
         artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'msg': 'Perfil no encontrado'}), 404
-        
-        # Verificar que la solicitud pertenece al artesano
+
         solicitud = Solicitud.query.filter_by(
             solicitud_id=solicitud_id,
             artesano_id=artesano.artesano_id
@@ -223,8 +223,7 @@ def editar_solicitud(solicitud_id):
         
         if not solicitud:
             return jsonify({'msg': 'Solicitud no encontrada'}), 404
-        
-        # Solo permitir edición en estados específicos
+
         estados_permitidos_edicion = ['Pendiente', 'Corrección Requerida']
         estado_actual = EstadoSolicitud.query.get(solicitud.estado_solicitud_id)
         
@@ -238,8 +237,7 @@ def editar_solicitud(solicitud_id):
             return jsonify({'msg': 'Datos no proporcionados'}), 400
         
         cambios_realizados = False
-        
-        # Validar y actualizar campos del artesano
+
         if 'nombre' in data and data['nombre']:
             if len(data['nombre']) > 20:
                 return jsonify({'msg': 'El nombre no puede tener más de 20 caracteres'}), 400
@@ -257,8 +255,7 @@ def editar_solicitud(solicitud_id):
         if 'dni' in data and data['dni']:
             if len(str(data['dni'])) > 8:
                 return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
-            
-            # Verificar que el DNI no esté siendo usado por otro artesano
+
             dni_existente = Artesano.query.filter(
                 Artesano.dni == data['dni'],
                 Artesano.artesano_id != artesano.artesano_id
@@ -271,7 +268,6 @@ def editar_solicitud(solicitud_id):
                 artesano.dni = data['dni']
                 cambios_realizados = True
         
-        # Validar y actualizar campos de la solicitud
         if 'descripcion' in data and data['descripcion']:
             if len(data['descripcion']) > 500:
                 return jsonify({'msg': 'La descripción no puede tener más de 500 caracteres'}), 400
@@ -309,9 +305,7 @@ def editar_solicitud(solicitud_id):
                 solicitud.rubro_id = data['rubro_id']
                 cambios_realizados = True
         
-        # Recalcular parcelas y costo si cambian dimensiones o rubro
         if cambios_realizados and ('dimensiones_ancho' in data or 'dimensiones_largo' in data or 'rubro_id' in data):
-            # Calcular parcelas
             parcelas_largo = int(solicitud.dimensiones_largo / 3)
             if solicitud.dimensiones_largo % 3 != 0:
                 parcelas_largo += 1
@@ -328,7 +322,6 @@ def editar_solicitud(solicitud_id):
             solicitud.costo_total = costo_total
         
         if cambios_realizados:
-            # Actualizar fecha de modificación
             solicitud.fecha_gestion = datetime.utcnow()
             db.session.commit()
             
@@ -345,6 +338,10 @@ def editar_solicitud(solicitud_id):
         print("ERROR EN editar_solicitud():", str(e))
         return jsonify({'msg': 'Error interno al actualizar solicitud', 'error': str(e)}), 500
 
+
+
+from datetime import datetime
+
 @solicitud_bp.route('', methods=['GET'])
 @jwt_required()
 def obtener_solicitud_artesano():
@@ -356,8 +353,15 @@ def obtener_solicitud_artesano():
     if not artesano:
         return jsonify({'msg': 'Perfil no encontrado'}), 404
     
-    solicitud = Solicitud.query.filter_by(artesano_id=artesano.artesano_id).first()
-    
+    año_actual = datetime.now().year
+
+    solicitud = (
+        Solicitud.query
+        .filter(Solicitud.artesano_id == artesano.artesano_id)
+        .filter(db.extract('year', Solicitud.fecha_solicitud) == año_actual)
+        .first()
+    )
+
     if not solicitud:
         return jsonify({
             'perfil_artesano': {
@@ -366,16 +370,15 @@ def obtener_solicitud_artesano():
                 'dni': artesano.dni
             },
             'solicitud': None,
-            'msg': 'No tiene solicitudes activas'
+            'msg': 'No tiene solicitudes activas en el año actual'
         }), 200
     
-    # Convertir solicitud a dict y reemplazar fotos con Data URLs
     solicitud_data = solicitud.to_dict()
     solicitud_data['fotos'] = [
         {
             'foto_id': foto.foto_id,
             'solicitud_id': foto.solicitud_id,
-            'image_url': foto.get_image_url(),  # Data URL completo para frontend
+            'image_url': foto.get_image_url(),
             'extension': foto.extension,
             'fecha_creacion': foto.fecha_creacion.isoformat() if foto.fecha_creacion else None
         }
@@ -391,72 +394,100 @@ def obtener_solicitud_artesano():
         'solicitud': solicitud_data
     }), 200
 
-@solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['PUT'])
+@solicitud_bp.route('/historial', methods=['GET'])
+@jwt_required()
+def obtener_historial_solicitudes():
+    usuario = get_usuario_actual()
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+
+    artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
+    if not artesano:
+        return jsonify({'error': 'Artesano no encontrado'}), 404
+
+    solicitudes = (
+        Solicitud.query
+        .filter_by(artesano_id=artesano.artesano_id)
+        .order_by(Solicitud.fecha_solicitud.desc())
+        .all()
+    )
+
+    if not solicitudes:
+        return jsonify({
+            'msg': 'No tiene solicitudes registradas',
+            'solicitudes': []
+        }), 200
+
+    solicitudes_data = []
+    for solicitud in solicitudes:
+        data = solicitud.to_dict()
+        data['fotos'] = [
+            {
+                'foto_id': foto.foto_id,
+                'solicitud_id': foto.solicitud_id,
+                'image_url': foto.get_image_url(),
+                'extension': foto.extension,
+                'fecha_creacion': foto.fecha_creacion.isoformat() if foto.fecha_creacion else None
+            }
+            for foto in solicitud.fotos_rel
+        ]
+        solicitudes_data.append(data)
+
+    return jsonify({
+        'artesano': {
+            'nombre': artesano.nombre,
+            'telefono': artesano.telefono,
+            'dni': artesano.dni
+        },
+        'total_solicitudes': len(solicitudes_data),
+        'solicitudes': solicitudes_data
+    }), 200
+
+
+
+
+@solicitud_bp.route('/<int:solicitud_id>/cancelar', methods=['DELETE'])
 @jwt_required()
 def cancelar_solicitud_artesano(solicitud_id):
-    """
-    Cancelar una solicitud (puede ser cancelada en cualquier estado)
-    """
     try:
         usuario = get_usuario_actual()
         if not usuario:
             return jsonify({'error': 'Usuario no encontrado'}), 404
-        
+
         artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
         if not artesano:
             return jsonify({'error': 'Artesano no encontrado'}), 404
-        
-        # Obtener la solicitud
+
         solicitud = Solicitud.query.filter_by(
             solicitud_id=solicitud_id,
             artesano_id=artesano.artesano_id
         ).first()
-        
+
         if not solicitud:
             return jsonify({'error': 'Solicitud no encontrada'}), 404
-        
-        # Verificar que el estado "Cancelada" existe
-        estado_cancelada = EstadoSolicitud.query.filter_by(nombre='Cancelada').first()
-        
-        if not estado_cancelada:
-            return jsonify({'error': 'Estado "Cancelada" no configurado en el sistema'}), 500
-        
-        # Obtener el estado actual para el mensaje
-        estado_actual = EstadoSolicitud.query.get(solicitud.estado_solicitud_id)
-        
-        # Si ya está cancelada, no hacer nada
-        if solicitud.estado_solicitud_id == estado_cancelada.estado_solicitud_id:
-            return jsonify({
-                'message': 'La solicitud ya se encuentra cancelada',
-                'solicitud': solicitud.to_dict()
-            }), 200
-        
-        # Cambiar estado a cancelada
-        solicitud.estado_solicitud_id = estado_cancelada.estado_solicitud_id
-        solicitud.fecha_gestion = datetime.utcnow()
-        
+
+        solicitud_info = solicitud.to_dict()
+        db.session.delete(solicitud)
         db.session.commit()
-        
-        # Crear notificación de cancelación
         notificacion = Notificacion(
             artesano_id=artesano.artesano_id,
-            mensaje=f'Tu solicitud #{solicitud_id} ha sido cancelada exitosamente. Estado anterior: {estado_actual.nombre}',
-            estado_notificacion_id=1,  # Asumiendo que 1 es "Enviado"
+            mensaje=f'Se eliminó la solicitud #{solicitud_info["solicitud_id"]} correctamente.',
+            estado_notificacion_id=1,
             leido=False
         )
         db.session.add(notificacion)
         db.session.commit()
-        
+
         return jsonify({
-            'message': 'Solicitud cancelada exitosamente',
-            'solicitud': solicitud.to_dict(),
-            'estado_anterior': estado_actual.nombre
+            'message': f'Solicitud #{solicitud_info["solicitud_id"]} eliminada exitosamente.',
+            'solicitud_eliminada': solicitud_info
         }), 200
-        
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Error al eliminar la solicitud: {str(e)}'}), 500
 
+    
 @solicitud_bp.route('/<int:solicitud_id>/fotos', methods=['POST'])
 @jwt_required()
 def agregar_fotos_solicitud(solicitud_id):

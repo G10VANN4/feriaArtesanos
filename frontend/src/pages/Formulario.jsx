@@ -192,7 +192,12 @@ const Formulario = () => {
                           err.response?.data?.error || 
                           err.message || 
                           "Error interno del sistema";
-      
+      if (errorMessage.includes("Solo se permite una solicitud por año")) {
+        alert("Ya enviaste una solicitud este año. No podés enviar otra hasta el próximo período.");
+        navigate("/historial"); 
+        setLoading(false);
+        return; 
+  }
       setError(errorMessage);
     } finally {
       setLoading(false);
