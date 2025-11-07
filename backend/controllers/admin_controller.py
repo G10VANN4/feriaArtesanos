@@ -9,6 +9,7 @@ from models.usuario import Usuario
 from models.administrador import Administrador
 from models.solicitud_foto import SolicitudFoto
 from models.notificacion import Notificacion
+from models.limite_rubro import LimiteRubro
 from sqlalchemy import or_, func, and_
 from datetime import datetime, timedelta
 from sqlalchemy.orm import joinedload 
@@ -16,6 +17,9 @@ import io
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
 
 # Blueprint con prefix
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/v1') 
@@ -68,32 +72,46 @@ class AdminController:
             raise e
 
     @staticmethod
-    def crear_notificacion_organizador(mensaje):
+    def get_limite_activo_rubro(rubro_id):
         """
-        Crear una notificación para todos los organizadores
+        Obtiene el límite activo actual para un rubro
         """
         try:
-            organizadores = Administrador.query.join(Usuario).filter(Usuario.rol_id == 3).all()
-            for organizador in organizadores:
-                notificacion = Notificacion(
-                    administrador_id=organizador.administrador_id,
-                    mensaje=mensaje,
-                    estado_notificacion_id=1,
-                    tipo='organizador'
-                )
-                db.session.add(notificacion)
+            limite_activo = LimiteRubro.query.filter_by(
+                rubro_id=rubro_id,
+                es_activo=True
+            ).first()
+            
+            if limite_activo:
+                return limite_activo.max_puestos, limite_activo.limite_id
+            return None, None
+            
         except Exception as e:
-            print(f"Error al crear notificación para organizadores: {str(e)}")
+            print(f"Error al obtener límite activo para rubro {rubro_id}: {str(e)}")
+            return None, None
 
     @staticmethod
     def verificar_limite_rubro(rubro_id):
         """
-        Verifica si se ha alcanzado el límite máximo de puestos para un rubro
+        Verifica si se ha alcanzado el límite máximo de puestos para un rubro - ACTUALIZADO
         """
         try:
-            # Como el modelo Rubro no tiene limite_puestos, por ahora siempre retornamos False
-            # En una implementación real, necesitarías agregar estos campos al modelo
-            return False, 0, 0
+            # Obtener el límite activo para el rubro
+            limite_maximo, limite_id = AdminController.get_limite_activo_rubro(rubro_id)
+            
+            if not limite_maximo:
+                return False, 0, 0  # Sin límite configurado
+
+            # Contar solicitudes aprobadas para este rubro
+            estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
+            count_aprobadas = db.session.query(func.count(Solicitud.solicitud_id)).filter(
+                Solicitud.rubro_id == rubro_id,
+                Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
+            ).scalar() or 0
+
+            limite_alcanzado = count_aprobadas >= limite_maximo
+            
+            return limite_alcanzado, count_aprobadas, limite_maximo
 
         except Exception as e:
             print(f"Error al verificar límite de rubro: {str(e)}")
@@ -324,7 +342,7 @@ class AdminController:
     @staticmethod
     def get_configuraciones_rubros():
         """
-        RF17: Obtener configuraciones de precios y límites por rubro
+        RF17: Obtener configuraciones de precios y límites por rubro - ACTUALIZADO
         """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
@@ -336,20 +354,29 @@ class AdminController:
             configuraciones = []
 
             for rubro in rubros:
-                # Como el modelo Rubro no tiene estos campos, usamos valores por defecto
-                # En una implementación real, necesitarías agregar estos campos al modelo
+                # Obtener límite activo para el rubro
+                limite_activo, limite_id = AdminController.get_limite_activo_rubro(rubro.rubro_id)
+                
+                # Contar puestos aprobados
+                estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
                 count_aprobadas = db.session.query(func.count(Solicitud.solicitud_id)).filter(
                     Solicitud.rubro_id == rubro.rubro_id,
-                    Solicitud.estado_solicitud_id == EstadoSolicitud.query.filter_by(nombre='Aprobada').first().estado_solicitud_id
-                ).scalar()
+                    Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
+                ).scalar() or 0
+
+                # Verificar disponibilidad
+                disponible = True
+                if limite_activo and count_aprobadas >= limite_activo:
+                    disponible = False
 
                 configuraciones.append({
                     'rubro_id': rubro.rubro_id,
                     'rubro_nombre': rubro.tipo,
-                    'precio_base': 0.0,  # Valor por defecto
-                    'limite_puestos': None,  # Sin límite por defecto
+                    'precio_base': float(rubro.precio_parcela) if rubro.precio_parcela else 0.0,
+                    'limite_puestos': limite_activo,  # Usa el límite de la tabla LimiteRubro
+                    'limite_id': limite_id,  # ID del límite para actualizaciones
                     'puestos_aprobados': count_aprobadas,
-                    'disponible': True  # Siempre disponible por ahora
+                    'disponible': disponible
                 })
 
             return configuraciones, 200
@@ -361,7 +388,7 @@ class AdminController:
     @staticmethod
     def actualizar_configuracion_rubro(rubro_id, data):
         """
-        RF17: Actualizar configuración de precio y límite para un rubro
+        RF17: Actualizar configuración de precio y límite para un rubro - ACTUALIZADO
         """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
@@ -373,27 +400,54 @@ class AdminController:
             if not rubro:
                 return {'msg': 'Rubro no encontrado'}, 404
 
-            # Como el modelo Rubro no tiene estos campos, simplemente retornamos éxito
-            # En una implementación real, necesitarías agregar estos campos al modelo
-            # y actualizar la base de datos aquí
+            # Actualizar precio en el rubro
+            if 'precio_base' in data:
+                rubro.precio_parcela = data['precio_base']
+
+            # Actualizar o crear límite en LimiteRubro
+            if 'limite_puestos' in data:
+                limite_activo, limite_id = AdminController.get_limite_activo_rubro(rubro_id)
+                
+                nuevo_limite = data['limite_puestos']
+                
+                if limite_id:  # Actualizar límite existente
+                    limite = LimiteRubro.query.get(limite_id)
+                    if nuevo_limite:
+                        limite.max_puestos = nuevo_limite
+                        limite.fecha_vigencia = datetime.utcnow().date()
+                    else:
+                        # Si se establece None, desactivar el límite
+                        limite.es_activo = False
+                else:  # Crear nuevo límite
+                    if nuevo_limite:
+                        nuevo_limite_rubro = LimiteRubro(
+                            rubro_id=rubro_id,
+                            max_puestos=nuevo_limite,
+                            fecha_vigencia=datetime.utcnow().date(),
+                            es_activo=True
+                        )
+                        db.session.add(nuevo_limite_rubro)
+
+            db.session.commit()
 
             return {
                 'msg': f'Configuración del rubro {rubro.tipo} actualizada correctamente.',
                 'configuracion': {
                     'rubro_id': rubro.rubro_id,
                     'rubro_nombre': rubro.tipo,
-                    'precio_base': data.get('precio_base', 0.0),
-                    'limite_puestos': data.get('limite_puestos', None)
+                    'precio_base': float(rubro.precio_parcela) if rubro.precio_parcela else 0.0,
+                    'limite_puestos': data.get('limite_puestos')
                 }
             }, 200
 
         except Exception as e:
+            db.session.rollback()
             return {'msg': 'Error interno al actualizar la configuración.', 'error': str(e)}, 500
 
     @staticmethod
     def get_diversidad_rubros():
         """
-        RF14: Obtener diversidad por categorías con límites
+        RF14: Obtener diversidad por categorías con límites - ACTUALIZADO
         """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
@@ -401,39 +455,52 @@ class AdminController:
             return permisos
 
         try:
-            # Obtener estadísticas por rubro
-            estadisticas = db.session.query(
-                Rubro.rubro_id,
-                Rubro.tipo.label('rubro_nombre'),
-                func.count(Solicitud.solicitud_id).label('total_solicitudes'),
-                func.sum(
-                    db.case(
-                        (Solicitud.estado_solicitud_id == EstadoSolicitud.query.filter_by(nombre='Aprobada').first().estado_solicitud_id, 1),
-                        else_=0
-                    )
-                ).label('aprobadas'),
-                func.sum(
-                    db.case(
-                        (Solicitud.estado_solicitud_id == EstadoSolicitud.query.filter_by(nombre='Pendiente').first().estado_solicitud_id, 1),
-                        else_=0
-                    )
-                ).label('pendientes')
-            ).join(Solicitud, Solicitud.rubro_id == Rubro.rubro_id
-            ).group_by(Rubro.rubro_id, Rubro.tipo).all()
-
+            rubros_activos = Rubro.query.all()
+            
             resultado = []
-            for stat in estadisticas:
-                # Como el modelo Rubro no tiene estos campos, usamos valores por defecto
+            for rubro in rubros_activos:
+                # Contar por estado para ESTE rubro específico
+                total_solicitudes = db.session.query(func.count(Solicitud.solicitud_id)).filter(
+                    Solicitud.rubro_id == rubro.rubro_id
+                ).scalar() or 0
+                
+                estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
+                aprobadas = db.session.query(func.count(Solicitud.solicitud_id)).filter(
+                    Solicitud.rubro_id == rubro.rubro_id,
+                    Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
+                ).scalar() or 0
+                
+                estados_pendientes = EstadoSolicitud.query.filter(
+                    EstadoSolicitud.nombre.in_(['Pendiente', 'Pendiente por Modificación'])
+                ).all()
+                estados_pendientes_ids = [e.estado_solicitud_id for e in estados_pendientes]
+                
+                pendientes = db.session.query(func.count(Solicitud.solicitud_id)).filter(
+                    Solicitud.rubro_id == rubro.rubro_id,
+                    Solicitud.estado_solicitud_id.in_(estados_pendientes_ids)
+                ).scalar() or 0
+                
+                # Obtener límite activo
+                limite_activo, _ = AdminController.get_limite_activo_rubro(rubro.rubro_id)
+                
+                # Calcular disponibilidad
+                limite_alcanzado = False
+                disponibilidad = "Sin límite"
+                
+                if limite_activo:
+                    limite_alcanzado = aprobadas >= limite_activo
+                    disponibilidad = f"{aprobadas}/{limite_activo}"
+                
                 resultado.append({
-                    'rubro_id': stat.rubro_id,
-                    'rubro_nombre': stat.rubro_nombre,
-                    'total_solicitudes': stat.total_solicitudes or 0,
-                    'aprobadas': stat.aprobadas or 0,
-                    'pendientes': stat.pendientes or 0,
-                    'limite_puestos': None,  # Sin límite por defecto
-                    'precio_base': 0.0,  # Valor por defecto
-                    'limite_alcanzado': False,  # Nunca alcanzado por ahora
-                    'disponibilidad': "Sin límite"  # Siempre disponible
+                    'rubro_id': rubro.rubro_id,
+                    'rubro_nombre': rubro.tipo,
+                    'total_solicitudes': total_solicitudes,
+                    'aprobadas': aprobadas,
+                    'pendientes': pendientes,
+                    'limite_puestos': limite_activo,
+                    'precio_base': float(rubro.precio_parcela) if rubro.precio_parcela else 0.0,
+                    'limite_alcanzado': limite_alcanzado,
+                    'disponibilidad': disponibilidad
                 })
 
             return resultado, 200
@@ -443,290 +510,282 @@ class AdminController:
             return {'msg': 'Error interno al obtener la diversidad de rubros.', 'detalle': str(e)}, 500
 
     @staticmethod
-    def cancelar_solicitud_admin(solicitud_id):
-        usuario = get_usuario_actual()
-        permisos = AdminController._check_admin_permissions(usuario)
-        if not isinstance(permisos, Administrador):
-            return permisos
-            
-        estado_cancelada = EstadoSolicitud.query.filter_by(nombre='Cancelada').first()
-        if not estado_cancelada:
-             return {'msg': 'El estado "Cancelada" no existe en la base de datos.'}, 500
-
-        administrador = permisos
-
-        try:
-            solicitud = Solicitud.query.get(solicitud_id)
-            if not solicitud: 
-                return {'msg': f'Solicitud ID {solicitud_id} no encontrada.'}, 404
-
-            estado_anterior = solicitud.estado_rel.nombre if solicitud.estado_rel else 'Sin estado'
-            
-            solicitud.estado_solicitud_id = estado_cancelada.estado_solicitud_id
-            solicitud.administrador_id = administrador.administrador_id
-            solicitud.fecha_gestion = datetime.utcnow()
-            solicitud.comentarios_admin = (solicitud.comentarios_admin or "") + f"\n[AUDITORÍA] Cancelada por Admin/Organizador (ID: {administrador.administrador_id}) el {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-            
-            if solicitud.artesano_id:
-                mensaje_notificacion = f"Tu solicitud fue cancelada por el administrador. Estado anterior: {estado_anterior}"
-                
-                AdminController.crear_notificacion_artesano(
-                    solicitud.artesano_id, 
-                    mensaje_notificacion
-                )
-            
-            db.session.commit()
-            return {'msg': f'Solicitud ID {solicitud_id} ha sido cancelada exitosamente.'}, 200
-
-        except Exception as e:
-            db.session.rollback()
-            return {'msg': 'Error interno del servidor al cancelar la solicitud.', 'error': str(e)}, 500
-
-    @staticmethod
     def get_estadisticas_usuarios(fecha_inicio, fecha_fin, agrupacion='dia'):
+        """
+        Obtener estadísticas de usuarios por período - ACTUALIZADO CON VALIDACIONES Y CONSULTAS COMPATIBLES
+        """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
         if not isinstance(permisos, Administrador):
             return permisos
 
         try:
-            if fecha_inicio > fecha_fin:
-                return {'msg': 'La fecha de inicio no puede ser mayor a la fecha de fin'}, 400
-
+            # Validaciones de fecha
             hoy = datetime.utcnow().date()
-            if fecha_inicio > hoy:
-                fecha_inicio = hoy
-            if fecha_fin > hoy:
-                fecha_fin = hoy
+            
+            # Validar que fecha_inicio no sea mayor que fecha_fin
+            if fecha_inicio > fecha_fin:
+                return {'msg': 'La fecha de inicio no puede ser mayor que la fecha de fin'}, 400
+            
+            # Validar que no se seleccionen fechas futuras
+            if fecha_inicio > hoy or fecha_fin > hoy:
+                return {'msg': 'No se pueden seleccionar fechas futuras'}, 400
+            
+            # Validar que el rango no sea excesivamente grande (máximo 1 año)
+            if (fecha_fin - fecha_inicio).days > 365:
+                return {'msg': 'El rango de fechas no puede ser mayor a 1 año'}, 400
 
-            fecha_inicio_dt = datetime.combine(fecha_inicio, datetime.min.time())
-            fecha_fin_dt = datetime.combine(fecha_fin, datetime.max.time())
-
-            query = db.session.query(
-                func.date(Usuario.fecha_registro).label('fecha'),
-                func.count(Usuario.usuario_id).label('total')
-            ).filter(
-                Usuario.fecha_registro.between(fecha_inicio_dt, fecha_fin_dt)
-            ).group_by(func.date(Usuario.fecha_registro))
-
-            resultados = query.all()
-
-            if not resultados:
-                return {
-                    'total_general': 0,
-                    'rango_fechas': {
-                        'inicio': fecha_inicio.strftime('%d/%m/%Y'),
-                        'fin': fecha_fin.strftime('%d/%m/%Y')
-                    },
-                    'agrupacion': agrupacion,
-                    'datos': []
-                }, 200
-
-            datos_agrupados = []
-            total_general = 0
-
-            if agrupacion == 'dia':
-                for fecha, total in resultados:
-                    datos_agrupados.append({
-                        'periodo': fecha.strftime('%Y-%m-%d'),
-                        'fecha': fecha.isoformat(),
-                        'total': total,
-                        'label': fecha.strftime('%d/%m/%Y')
+            # Consultas compatibles con ONLY_FULL_GROUP_BY
+            if agrupacion == 'semana':
+                # Para semana: usar la misma expresión en SELECT y GROUP BY
+                query = db.session.query(
+                    func.yearweek(Usuario.fecha_registro).label('periodo'),
+                    func.count(Usuario.usuario_id).label('nuevos_usuarios')
+                ).filter(
+                    Usuario.fecha_registro.between(fecha_inicio, fecha_fin + timedelta(days=1))
+                ).group_by(
+                    func.yearweek(Usuario.fecha_registro)
+                ).order_by('periodo')
+                
+                resultados = query.all()
+                
+                # Formatear resultados para semanas
+                estadisticas = []
+                for resultado in resultados:
+                    # Convertir año-semana a formato legible
+                    año_semana = str(resultado.periodo)
+                    año = año_semana[:4]
+                    semana = año_semana[4:]
+                    fecha_str = f"Semana {semana}-{año}"
+                    
+                    estadisticas.append({
+                        'fecha': fecha_str,
+                        'nuevos_usuarios': resultado.nuevos_usuarios
                     })
-                    total_general += total
-
-            elif agrupacion == 'semana':
-                semanas = {}
-                for fecha, total in resultados:
-                    año, semana_num, dia_semana = fecha.isocalendar()
-                    
-                    inicio_semana = fecha - timedelta(days=dia_semana-1)
-                    fin_semana = inicio_semana + timedelta(days=6)
-                    
-                    clave_semana = f"{año}-W{semana_num:02d}"
-                    
-                    if clave_semana not in semanas:
-                        semanas[clave_semana] = {
-                            'periodo': clave_semana,
-                            'total': 0,
-                            'label': f"Semana {semana_num:02d} ({inicio_semana.strftime('%d/%m')} - {fin_semana.strftime('%d/%m')})",
-                            'fecha_inicio': inicio_semana.strftime('%d/%m/%Y'),
-                            'fecha_fin': fin_semana.strftime('%d/%m/%Y')
-                        }
-                    semanas[clave_semana]['total'] += total
-                    total_general += total
-
-                datos_agrupados = list(semanas.values())
 
             elif agrupacion == 'mes':
-                meses = {}
-                for fecha, total in resultados:
-                    clave_mes = f"{fecha.year}-{fecha.month:02d}"
+                # Para mes: usar las mismas expresiones en SELECT y GROUP BY
+                query = db.session.query(
+                    func.year(Usuario.fecha_registro).label('año'),
+                    func.month(Usuario.fecha_registro).label('mes'),
+                    func.count(Usuario.usuario_id).label('nuevos_usuarios')
+                ).filter(
+                    Usuario.fecha_registro.between(fecha_inicio, fecha_fin + timedelta(days=1))
+                ).group_by(
+                    func.year(Usuario.fecha_registro),
+                    func.month(Usuario.fecha_registro)
+                ).order_by('año', 'mes')
+                
+                resultados = query.all()
+                
+                # Formatear resultados para meses
+                estadisticas = []
+                for resultado in resultados:
+                    fecha_str = f"{resultado.año}-{resultado.mes:02d}"
                     
-                    if clave_mes not in meses:
-                        meses_es = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-                        nombre_mes = meses_es[fecha.month - 1]
-                        
-                        meses[clave_mes] = {
-                            'periodo': clave_mes,
-                            'total': 0,
-                            'label': f"{nombre_mes} {fecha.year}",
-                            'fecha_inicio': fecha.replace(day=1).strftime('%d/%m/%Y'),
-                            'fecha_fin': (fecha.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-                        }
-                    meses[clave_mes]['total'] += total
-                    total_general += total
+                    estadisticas.append({
+                        'fecha': fecha_str,
+                        'nuevos_usuarios': resultado.nuevos_usuarios
+                    })
 
-                datos_agrupados = list(meses.values())
+            else:  # día por defecto
+                # Para día: usar la misma expresión en SELECT y GROUP BY
+                query = db.session.query(
+                    func.date(Usuario.fecha_registro).label('fecha'),
+                    func.count(Usuario.usuario_id).label('nuevos_usuarios')
+                ).filter(
+                    Usuario.fecha_registro.between(fecha_inicio, fecha_fin + timedelta(days=1))
+                ).group_by(
+                    func.date(Usuario.fecha_registro)
+                ).order_by('fecha')
+                
+                resultados = query.all()
+                
+                # Formatear resultados para días
+                estadisticas = []
+                for resultado in resultados:
+                    estadisticas.append({
+                        'fecha': resultado.fecha.strftime('%Y-%m-%d'),
+                        'nuevos_usuarios': resultado.nuevos_usuarios
+                    })
+
+            # Calcular total general
+            total_general = sum(item['nuevos_usuarios'] for item in estadisticas)
 
             return {
+                'estadisticas': estadisticas,
                 'total_general': total_general,
                 'rango_fechas': {
-                    'inicio': fecha_inicio.strftime('%d/%m/%Y'),
-                    'fin': fecha_fin.strftime('%d/%m/%Y')
+                    'inicio': fecha_inicio.strftime('%Y-%m-%d'),
+                    'fin': fecha_fin.strftime('%Y-%m-%d')
                 },
-                'agrupacion': agrupacion,
-                'datos': datos_agrupados
+                'agrupacion': agrupacion
             }, 200
 
         except Exception as e:
-            print(f"❌ Error al obtener estadísticas: {str(e)}")
+            print(f"Error al obtener estadísticas de usuarios: {str(e)}")
             return {'msg': 'Error interno al obtener las estadísticas.', 'detalle': str(e)}, 500
 
     @staticmethod
     def exportar_estadisticas_excel(fecha_inicio, fecha_fin, agrupacion='dia'):
+        """
+        Exportar estadísticas de usuarios a Excel - ACTUALIZADO CON CONSULTAS COMPATIBLES
+        """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
         if not isinstance(permisos, Administrador):
-            return permisos
+            return jsonify(permisos[0]), permisos[1]
 
         try:
-            datos_response, status = AdminController.get_estadisticas_usuarios(fecha_inicio, fecha_fin, agrupacion)
+            # Validaciones de fecha
+            hoy = datetime.utcnow().date()
             
+            if fecha_inicio > fecha_fin:
+                return {'msg': 'La fecha de inicio no puede ser mayor que la fecha de fin'}, 400
+            
+            if fecha_inicio > hoy or fecha_fin > hoy:
+                return {'msg': 'No se pueden seleccionar fechas futuras'}, 400
+
+            # Obtener datos usando el método principal
+            resultado, status = AdminController.get_estadisticas_usuarios(fecha_inicio, fecha_fin, agrupacion)
             if status != 200:
-                return datos_response, status
+                return resultado, status
 
-            datos = datos_response['datos']
-            total_general = datos_response['total_general']
-            rango_fechas = datos_response['rango_fechas']
+            estadisticas = resultado['estadisticas']
+            total_general = resultado['total_general']
 
-            import pandas as pd
-            from io import BytesIO
-            
-            df_data = []
-            for item in datos:
-                df_data.append({
-                    'Período': item['label'],
-                    'Total de Usuarios': item['total']
-                })
-            
-            df = pd.DataFrame(df_data)
-            
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Estadísticas Usuarios', index=False)
-                
-                workbook = writer.book
-                worksheet = writer.sheets['Estadísticas Usuarios']
-                
-                worksheet['E1'] = 'Reporte de Usuarios Registrados'
-                worksheet['E2'] = f"Rango de fechas: {rango_fechas['inicio']} - {rango_fechas['fin']}"
-                worksheet['E3'] = f"Agrupación: {agrupacion.capitalize()}"
-                worksheet['E4'] = f"Total general: {total_general} usuarios"
-                worksheet['E5'] = f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+            # Crear workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Estadísticas Usuarios"
 
-            output.seek(0)
-            return output, 200
+            # Título y metadatos
+            ws['A1'] = f"Reporte de Usuarios Registrados"
+            ws['A1'].font = Font(bold=True, size=14)
+            ws['A2'] = f"Período: {fecha_inicio} a {fecha_fin}"
+            ws['A3'] = f"Agrupación: {agrupacion}"
+            ws['A4'] = f"Total de usuarios: {total_general}"
 
-        except ImportError:
-            return {'msg': 'Error: Biblioteca pandas no instalada. Ejecute: pip install pandas openpyxl'}, 500
-        except Exception as e:
-            print(f"❌ Error al generar Excel: {str(e)}")
-            return {'msg': 'Error interno al generar el reporte Excel.', 'detalle': str(e)}, 500
+            # Encabezados
+            headers = ['Fecha/Período', 'Nuevos Usuarios']
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=6, column=col, value=header)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal='center')
 
-    @staticmethod
-    def exportar_artesanos_pdf():
-        usuario = get_usuario_actual()
-        permisos = AdminController._check_admin_permissions(usuario)
-        if not isinstance(permisos, Administrador):
-            return permisos
+            # Datos
+            for row, stat in enumerate(estadisticas, 7):
+                ws.cell(row=row, column=1, value=stat['fecha'])
+                ws.cell(row=row, column=2, value=stat['nuevos_usuarios'])
 
-        try:
-            artesanos_aprobados = db.session.query(
-                Artesano.artesano_id,
-                Artesano.nombre,
-                Artesano.telefono,
-                Artesano.dni,
-                Rubro.tipo.label('rubro'),
-                Solicitud.dimensiones_largo,
-                Solicitud.dimensiones_ancho,
-                Solicitud.descripcion
-            ).join(Solicitud, Solicitud.artesano_id == Artesano.artesano_id
-            ).join(EstadoSolicitud, EstadoSolicitud.estado_solicitud_id == Solicitud.estado_solicitud_id
-            ).join(Rubro, Rubro.rubro_id == Solicitud.rubro_id
-            ).filter(EstadoSolicitud.nombre == 'Aprobada'
-            ).order_by(Artesano.nombre).all()
+            # Total al final
+            total_row = len(estadisticas) + 7
+            ws.cell(row=total_row, column=1, value='TOTAL').font = Font(bold=True)
+            ws.cell(row=total_row, column=2, value=total_general).font = Font(bold=True)
 
+            # Ajustar anchos de columna
+            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['B'].width = 15
+
+            # Guardar en buffer
             buffer = io.BytesIO()
-            pdf = canvas.Canvas(buffer, pagesize=letter)
-            width, height = letter
-
-            pdf.setFont("Helvetica-Bold", 16)
-            pdf.drawString(1 * inch, height - 1 * inch, "Listado de Artesanos Aprobados")
-
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(1 * inch, height - 1.3 * inch, f"Total de artesanos: {len(artesanos_aprobados)}")
-            pdf.drawString(1 * inch, height - 1.5 * inch, f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-
-            y_position = height - 2 * inch
-            pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(1 * inch, y_position, "Nombre")
-            pdf.drawString(3 * inch, y_position, "DNI")
-            pdf.drawString(4 * inch, y_position, "Teléfono")
-            pdf.drawString(5 * inch, y_position, "Rubro")
-            pdf.drawString(6 * inch, y_position, "Dimensiones")
-
-            pdf.setFont("Helvetica", 9)
-            y_position -= 0.2 * inch
-
-            for artesano in artesanos_aprobados:
-                if y_position < 1 * inch:
-                    pdf.showPage()
-                    y_position = height - 1 * inch
-                    pdf.setFont("Helvetica-Bold", 10)
-                    pdf.drawString(1 * inch, y_position, "Nombre")
-                    pdf.drawString(3 * inch, y_position, "DNI")
-                    pdf.drawString(4 * inch, y_position, "Teléfono")
-                    pdf.drawString(5 * inch, y_position, "Rubro")
-                    pdf.drawString(6 * inch, y_position, "Dimensiones")
-                    y_position -= 0.2 * inch
-                    pdf.setFont("Helvetica", 9)
-
-                nombre = artesano.nombre[:20] + "..." if len(artesano.nombre) > 20 else artesano.nombre
-                dimensiones = f"{artesano.dimensiones_largo or 'N/A'}x{artesano.dimensiones_ancho or 'N/A'}"
-
-                pdf.drawString(1 * inch, y_position, nombre)
-                pdf.drawString(3 * inch, y_position, artesano.dni or 'N/A')
-                pdf.drawString(4 * inch, y_position, artesano.telefono or 'N/A')
-                pdf.drawString(5 * inch, y_position, artesano.rubro or 'N/A')
-                pdf.drawString(6 * inch, y_position, dimensiones)
-                y_position -= 0.2 * inch
-
-            pdf.setFont("Helvetica", 8)
-            pdf.drawString(1 * inch, 0.5 * inch, f"Feria Artesanal - Listado de Artesanos Aprobados")
-
-            pdf.save()
+            wb.save(buffer)
             buffer.seek(0)
 
             return buffer, 200
 
         except Exception as e:
-            print(f"❌ Error al generar PDF de artesanos: {str(e)}")
-            return {'msg': 'Error interno al generar el reporte PDF.', 'detalle': str(e)}, 500
-    
+            print(f"Error al exportar estadísticas a Excel: {str(e)}")
+            return {'msg': 'Error interno al exportar las estadísticas.', 'detalle': str(e)}, 500
+
+    @staticmethod
+    def exportar_artesanos_pdf():
+        """
+        Exportar listado de artesanos aprobados a PDF
+        """
+        usuario = get_usuario_actual()
+        permisos = AdminController._check_admin_permissions(usuario)
+        if not isinstance(permisos, Administrador):
+            return jsonify(permisos[0]), permisos[1]
+
+        try:
+            # Obtener artesanos aprobados
+            estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
+            
+            artesanos_aprobados = db.session.query(
+                Artesano.nombre,
+                Artesano.dni,
+                Artesano.telefono,
+                Rubro.tipo.label('rubro'),
+                Solicitud.descripcion
+            ).join(Solicitud, Solicitud.artesano_id == Artesano.artesano_id
+            ).join(Rubro, Rubro.rubro_id == Solicitud.rubro_id
+            ).filter(Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
+            ).order_by(Artesano.nombre).all()
+
+            # Crear PDF
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+            width, height = letter
+
+            # Título
+            p.setFont("Helvetica-Bold", 16)
+            p.drawString(100, height - 100, "Listado de Artesanos Aprobados")
+            p.setFont("Helvetica", 10)
+            p.drawString(100, height - 120, f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+
+            # Encabezados de tabla
+            y_position = height - 160
+            headers = ['Nombre', 'DNI', 'Teléfono', 'Rubro', 'Descripción']
+            p.setFont("Helvetica-Bold", 10)
+            
+            # Dibujar encabezados
+            p.drawString(50, y_position, headers[0])
+            p.drawString(150, y_position, headers[1])
+            p.drawString(220, y_position, headers[2])
+            p.drawString(300, y_position, headers[3])
+            p.drawString(400, y_position, headers[4])
+
+            # Línea separadora
+            p.line(50, y_position - 5, width - 50, y_position - 5)
+
+            # Datos
+            p.setFont("Helvetica", 8)
+            y_position -= 20
+
+            for artesano in artesanos_aprobados:
+                # Verificar si necesita nueva página
+                if y_position < 100:
+                    p.showPage()
+                    p.setFont("Helvetica", 8)
+                    y_position = height - 50
+
+                # Dibujar datos (truncar si es muy largo)
+                nombre = artesano.nombre[:20] + '...' if len(artesano.nombre) > 20 else artesano.nombre
+                descripcion = artesano.descripcion[:30] + '...' if artesano.descripcion and len(artesano.descripcion) > 30 else artesano.descripcion
+
+                p.drawString(50, y_position, nombre)
+                p.drawString(150, y_position, artesano.dni or 'N/A')
+                p.drawString(220, y_position, artesano.telefono or 'N/A')
+                p.drawString(300, y_position, artesano.rubro)
+                p.drawString(400, y_position, descripcion or 'N/A')
+
+                y_position -= 15
+
+            p.save()
+            buffer.seek(0)
+
+            return buffer, 200
+
+        except Exception as e:
+            print(f"Error al exportar artesanos a PDF: {str(e)}")
+            return {'msg': 'Error interno al exportar el listado de artesanos.', 'detalle': str(e)}, 500
+
     @staticmethod
     def get_estadisticas_rubros():
+        """
+        Obtener estadísticas de rubros (solo aprobadas)
+        """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
         if not isinstance(permisos, Administrador):
@@ -745,11 +804,14 @@ class AdminController:
             return resultado, 200
 
         except Exception as e:
-            print(f"❌ Error al obtener estadísticas de rubros: {str(e)}")
+            print(f"Error al obtener estadísticas de rubros: {str(e)}")
             return {'msg': 'Error interno al obtener las estadísticas de rubros.', 'detalle': str(e)}, 500
 
     @staticmethod
     def get_estadisticas_rubros_todas():
+        """
+        Obtener estadísticas de rubros (todas las solicitudes)
+        """
         usuario = get_usuario_actual()
         permisos = AdminController._check_admin_permissions(usuario)
         if not isinstance(permisos, Administrador):
@@ -766,7 +828,7 @@ class AdminController:
             return resultado, 200
 
         except Exception as e:
-            print(f"❌ Error al obtener estadísticas de rubros (todas): {str(e)}")
+            print(f"Error al obtener estadísticas de rubros (todas): {str(e)}")
             return {'msg': 'Error interno al obtener las estadísticas de rubros.', 'detalle': str(e)}, 500
 
 # RUTAS NUEVAS PARA LOS REQUERIMIENTOS

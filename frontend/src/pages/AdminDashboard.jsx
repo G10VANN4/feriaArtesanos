@@ -629,13 +629,12 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Filtros por Rubro */}
+          {/* Filtros por Rubro - MODIFICADO: Solo muestra aprobadas */}
           <div className="filtros-rubro-container">
             <div className="filtros-rubro-header">
               <div className="filtros-rubro-titulo">
                 <h3>Filtrar por Rubro</h3>
                 <p className="filtros-subtitulo">
-                  Total: {solicitudes.length} solicitudes • 
                   Aprobadas: {Object.values(rubrosStatsAprobadas).reduce((a, b) => a + b, 0)}
                 </p>
               </div>
@@ -656,7 +655,7 @@ const Dashboard = () => {
               >
                 <FiUsers size={16} />
                 Todos los Rubros
-                <span className="contador-rubro total">({solicitudes.length})</span>
+                <span className="contador-rubro aprobadas">({Object.values(rubrosStatsAprobadas).reduce((a, b) => a + b, 0)})</span>
               </button>
               
               {Object.keys(RUBROS).map(rubro => (
@@ -666,17 +665,14 @@ const Dashboard = () => {
                   onClick={() => setFiltroRubro(rubro)}
                 >
                   {rubro}
-                  <div className="contadores-dobles">
-                    <span className="contador-total">{rubrosStatsTodas[rubro] || 0}</span>
-                    <span className="contador-aprobadas">/{rubrosStatsAprobadas[rubro] || 0}✓</span>
-                  </div>
+                  <span className="contador-rubro aprobadas">
+                    {rubrosStatsAprobadas[rubro] || 0}✓
+                  </span>
                 </button>
               ))}
             </div>
             <div className="filtros-leyenda">
               <span className="leyenda-item">
-                <span className="leyenda-total">Número total</span>
-                <span className="leyenda-separador">/</span>
                 <span className="leyenda-aprobadas">Aprobadas ✓</span>
               </span>
             </div>
