@@ -150,6 +150,52 @@ def init_db():
             print("✅ Rubros insertados")
             datos_insertados = True
 
+        # 7.5 CREAR TIPO_PARcELA BÁSICO SI NO EXISTE
+        if Tipo_parcela.query.count() == 0:
+            tipo_basico = Tipo_parcela(tipo='Básica', es_activo=True)
+            db.session.add(tipo_basico)
+            db.session.flush()  # Esto es importante para obtener el ID
+            print("✅ Tipo de parcela básica creado")
+            datos_insertados = True
+
+        # 8. INICIALIZAR MAPA Y PARCELAS AUTOMÁTICAMENTE
+        if Mapa.query.count() == 0:
+            # Obtener el tipo de parcela que acabamos de crear o que ya existe
+            tipo_parcela = Tipo_parcela.query.filter_by(tipo='Básica').first()
+            
+            # Crear mapa principal (10x10)
+            mapa = Mapa(
+                cant_total_filas=10,
+                cant_total_columnas=10
+            )
+            db.session.add(mapa)
+            db.session.flush()
+            
+            # Obtener rubros existentes
+            rubros = Rubro.query.all()
+            if rubros:
+                # Crear parcelas (10x10 grid)
+                parcelas = []
+                for fila in range(1, 11):
+                    for columna in range(1, 11):
+                        # Asignar rubro de forma cíclica
+                        rubro_index = (fila + columna) % len(rubros)
+                        rubro_id = rubros[rubro_index].rubro_id
+                        
+                        parcela = Parcela(
+                            rubro_id=rubro_id,
+                            mapa_id=mapa.mapa_id,
+                            tipo_parcela_id=tipo_parcela.tipo_parcela_id,  # ← USAR EL ID REAL
+                            fila=fila,
+                            columna=columna,
+                            habilitada=True
+                        )
+                        parcelas.append(parcela)
+                
+                db.session.add_all(parcelas)
+                print("✅ Mapa y parcelas inicializados automáticamente (10x10)")
+                datos_insertados = True
+
 
         
         # Obtener IDs necesarios

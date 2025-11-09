@@ -10,6 +10,10 @@ from models.administrador import Administrador
 from models.solicitud_foto import SolicitudFoto
 from models.notificacion import Notificacion
 from models.limite_rubro import LimiteRubro
+from models.mapa import Mapa  
+from models.parcela import Parcela  
+from models.solicitud_parcela import SolicitudParcela 
+from models.color import Color
 from sqlalchemy import or_, func, and_
 from datetime import datetime, timedelta
 from sqlalchemy.orm import joinedload 
@@ -832,6 +836,218 @@ class AdminController:
             return {'msg': 'Error interno al obtener las estadísticas de rubros.', 'detalle': str(e)}, 500
 
 # RUTAS NUEVAS PARA LOS REQUERIMIENTOS
+
+@admin_bp.route('/admin/parcelas', methods=['GET'])
+@jwt_required()
+def obtener_parcelas_admin():
+    """Obtener parcelas para admin - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
+    try:
+        print("🎯 INICIANDO obtener_parcelas_admin")
+        
+        # Obtener identity DIRECTAMENTE
+        user_identity = get_jwt_identity()
+        print(f"🎯 User identity: {user_identity}")
+        
+        # Extraer ID del usuario - MANERA DIRECTA
+        if isinstance(user_identity, str) and user_identity.startswith('user_'):
+            usuario_id = int(user_identity.split('_')[1])
+        else:
+            usuario_id = int(user_identity)
+            
+        print(f"🎯 Usuario ID extraído: {usuario_id}")
+        
+        # Verificar si el usuario existe y es admin
+        usuario = Usuario.query.get(usuario_id)
+        if not usuario:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+            
+        print(f"🎯 Usuario encontrado: {usuario.email}, Rol: {usuario.rol_id}")
+        
+        # Verificar si es administrador u organizador
+        if usuario.rol_id not in [2, 3]:
+            return jsonify({'error': 'Acceso denegado. Se requiere rol de administrador.'}), 403
+        
+        # Verificar perfil de administrador
+        administrador = Administrador.query.filter_by(usuario_id=usuario_id).first()
+        if not administrador:
+            return jsonify({'error': 'Perfil de administrador no encontrado'}), 404
+            
+        print(f"🎯 Administrador autorizado: {administrador.nombre}")
+        
+        # OBTENER DATOS DEL MAPA - MANERA DIRECTA
+        mapa = Mapa.query.first()
+        if not mapa:
+            return jsonify({'error': 'No se ha configurado el mapa'}), 404
+            
+        print(f"🎯 Mapa encontrado: {mapa.mapa_id} - {mapa.cant_total_filas}x{mapa.cant_total_columnas}")
+        
+        # Obtener parcelas
+        parcelas = Parcela.query.filter_by(mapa_id=mapa.mapa_id).all()
+        print(f"🎯 Parcelas encontradas: {len(parcelas)}")
+        
+        # Procesar parcelas
+        parcelas_data = []
+        for parcela in parcelas:
+            parcela_data = {
+                'parcela_id': parcela.parcela_id,
+                'fila': parcela.fila,
+                'columna': parcela.columna,
+                'habilitada': parcela.habilitada,
+                'rubro_id': parcela.rubro_id,
+                'mapa_id': parcela.mapa_id,
+                'tipo_parcela_id': parcela.tipo_parcela_id
+            }
+            
+            # Obtener información del rubro DIRECTAMENTE
+            rubro = Rubro.query.get(parcela.rubro_id)
+            if rubro:
+                color = Color.query.get(rubro.color_id)
+                parcela_data['rubro_info'] = {
+                    'tipo': rubro.tipo,
+                    'color': color.codigo_hex if color else '#CCCCCC'
+                }
+            
+            # Verificar si está ocupada - CONSULTA DIRECTA
+            solicitud_ocupada = db.session.query(SolicitudParcela).join(
+                Solicitud, SolicitudParcela.solicitud_id == Solicitud.solicitud_id
+            ).join(
+                EstadoSolicitud, Solicitud.estado_solicitud_id == EstadoSolicitud.estado_solicitud_id
+            ).filter(
+                SolicitudParcela.parcela_id == parcela.parcela_id,
+                EstadoSolicitud.nombre == 'Aprobada'
+            ).first()
+            
+            parcela_data['ocupada'] = solicitud_ocupada is not None
+            
+            # Si está ocupada, obtener info del artesano
+            if solicitud_ocupada:
+                solicitud = Solicitud.query.get(solicitud_ocupada.solicitud_id)
+                if solicitud and solicitud.artesano_id:
+                    artesano = Artesano.query.get(solicitud.artesano_id)
+                    if artesano:
+                        parcela_data['artesano_info'] = {
+                            'artesano_id': artesano.artesano_id,
+                            'nombre': artesano.nombre,
+                            'dni': artesano.dni,
+                            'telefono': artesano.telefono
+                        }
+            
+            parcelas_data.append(parcela_data)
+        
+        print("🎯 FINALIZADO EXITOSAMENTE")
+        
+        return jsonify({
+            'parcelas': parcelas_data,
+            'mapa': {
+                'mapa_id': mapa.mapa_id,
+                'cant_total_filas': mapa.cant_total_filas,
+                'cant_total_columnas': mapa.cant_total_columnas
+            },
+            'total': len(parcelas_data)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ ERROR CRÍTICO en obtener_parcelas_admin: {str(e)}")
+        print("❌ TRACEBACK COMPLETO:")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Error interno del servidor: {str(e)}'}), 500
+
+@admin_bp.route('/admin/parcelas/deshabilitar', methods=['POST'])
+@jwt_required()
+def deshabilitar_parcelas():
+    """Deshabilitar parcelas seleccionadas - CORREGIDO"""
+    try:
+        usuario = get_usuario_actual()
+        permisos = AdminController._check_admin_permissions(usuario)
+        if not isinstance(permisos, Administrador):
+            return jsonify(permisos[0]), permisos[1]
+
+        data = request.get_json()
+        parcelas_ids = data.get('parcelas_ids', [])
+        
+        if not parcelas_ids:
+            return jsonify({'error': 'No se proporcionaron parcelas para deshabilitar'}), 400
+        
+        # Verificar que las parcelas existan y no estén ocupadas - CONSULTA DIRECTA
+        parcelas_ocupadas = []
+        for parcela_id in parcelas_ids:
+            parcela = Parcela.query.get(parcela_id)
+            if not parcela:
+                continue
+                
+            # Verificar si está ocupada - CONSULTA DIRECTA SIN RELACIONES
+            solicitud_ocupada = db.session.query(SolicitudParcela).join(
+                Solicitud, SolicitudParcela.solicitud_id == Solicitud.solicitud_id
+            ).join(
+                EstadoSolicitud, Solicitud.estado_solicitud_id == EstadoSolicitud.estado_solicitud_id
+            ).filter(
+                SolicitudParcela.parcela_id == parcela_id,
+                EstadoSolicitud.nombre == 'Aprobada'
+            ).first()
+            
+            if solicitud_ocupada:
+                parcelas_ocupadas.append(parcela_id)
+        
+        if parcelas_ocupadas:
+            return jsonify({
+                'error': 'No se pueden deshabilitar parcelas ocupadas',
+                'parcelas_ocupadas': parcelas_ocupadas
+            }), 400
+        
+        # Deshabilitar las parcelas
+        for parcela_id in parcelas_ids:
+            parcela = Parcela.query.get(parcela_id)
+            if parcela:
+                parcela.habilitada = False
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'{len(parcelas_ids)} parcelas deshabilitadas correctamente'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"❌ Error en deshabilitar_parcelas: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/admin/parcelas/habilitar', methods=['POST'])
+@jwt_required()
+def habilitar_parcelas():
+    """Habilitar parcelas seleccionadas - CORREGIDO"""
+    try:
+        usuario = get_usuario_actual()
+        permisos = AdminController._check_admin_permissions(usuario)
+        if not isinstance(permisos, Administrador):
+            return jsonify(permisos[0]), permisos[1]
+
+        data = request.get_json()
+        parcelas_ids = data.get('parcelas_ids', [])
+        
+        if not parcelas_ids:
+            return jsonify({'error': 'No se proporcionaron parcelas para habilitar'}), 400
+        
+        # Habilitar las parcelas - MANERA DIRECTA
+        for parcela_id in parcelas_ids:
+            parcela = Parcela.query.get(parcela_id)
+            if parcela:
+                parcela.habilitada = True
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'{len(parcelas_ids)} parcelas habilitadas correctamente'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"❌ Error en habilitar_parcelas: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/solicitudes/<int:solicitud_id>/modificar', methods=['PATCH'])
 @jwt_required()

@@ -15,30 +15,39 @@ import {
   FiX,
   FiSettings,
   FiPieChart,
-  FiDollarSign
+  FiDollarSign,
 } from "react-icons/fi";
 import axios from "axios";
 import "../styles/App.css";
 import Navbar from "../components/Navbar";
 import EstadisticasUsuarios from "../components/EstadisticasUsuarios";
+import MapaGrid from "../components/MapaGrid";
 
 const API_BASE_URL = "http://localhost:5000/api/v1";
 
 const RUBROS = {
-  "Artesanías": { badgeColor: "bg-blue-600" },
-  "Gastronomía": { badgeColor: "bg-red-600" },
-  "Reventa": { badgeColor: "bg-green-600" },
+  Artesanías: { badgeColor: "bg-blue-600" },
+  Gastronomía: { badgeColor: "bg-red-600" },
+  Reventa: { badgeColor: "bg-green-600" },
 };
 
 const ESTADOS = {
-  "Aprobada": { badge: "bg-green-500", icon: <FiCheckCircle /> },
-  "Pendiente": { badge: "bg-yellow-500", icon: <FiClock /> },
-  "Rechazada": { badge: "bg-red-500", icon: <FiXCircle /> },
-  "Cancelada": { badge: "bg-gray-500", icon: <FiTrash2 /> },
-  "Pendiente por Modificación": { badge: "bg-orange-500", icon: <FiAlertTriangle /> },
+  Aprobada: { badge: "bg-green-500", icon: <FiCheckCircle /> },
+  Pendiente: { badge: "bg-yellow-500", icon: <FiClock /> },
+  Rechazada: { badge: "bg-red-500", icon: <FiXCircle /> },
+  Cancelada: { badge: "bg-gray-500", icon: <FiTrash2 /> },
+  "Pendiente por Modificación": {
+    badge: "bg-orange-500",
+    icon: <FiAlertTriangle />,
+  },
 };
 
-const ESTADOS_ADMIN = ["Aprobada", "Pendiente", "Rechazada", "Pendiente por Modificación"];
+const ESTADOS_ADMIN = [
+  "Aprobada",
+  "Pendiente",
+  "Rechazada",
+  "Pendiente por Modificación",
+];
 
 const Dashboard = () => {
   const [filter, setFilter] = useState("all");
@@ -47,18 +56,18 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [rubrosStatsAprobadas, setRubrosStatsAprobadas] = useState({});
   const [rubrosStatsTodas, setRubrosStatsTodas] = useState({});
-  const [filtroRubro, setFiltroRubro] = useState('all');
+  const [filtroRubro, setFiltroRubro] = useState("all");
 
   const [editId, setEditId] = useState(null);
-  const [editData, setEditData] = useState({ 
-    estado_solicitud: "Pendiente", 
+  const [editData, setEditData] = useState({
+    estado_solicitud: "Pendiente",
     notas_admin: "",
     rubro_id: 1,
-    descripcion_puesto: ""
+    descripcion_puesto: "",
   });
   const [solicitudDetails, setSolicitudDetails] = useState(null);
   const [activeSolicitudId, setActiveSolicitudId] = useState(null);
-  
+
   // Estado para el modal de imagen ampliada
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
 
@@ -68,48 +77,58 @@ const Dashboard = () => {
   const [showConfiguracion, setShowConfiguracion] = useState(false);
   const [showDiversidad, setShowDiversidad] = useState(false);
 
+  // Mapa
+  const [showMapa, setShowMapa] = useState(false);
+
   // Función para reconstruir URLs de fotos
   const reconstruirFotos = (solicitudData) => {
     const fotos = [];
-    
+
     console.log("Datos para reconstruir fotos:", solicitudData);
-    
+
     // Procesar fotos existentes del array de fotos
     if (solicitudData.fotos && Array.isArray(solicitudData.fotos)) {
       solicitudData.fotos.forEach((foto, index) => {
         if (foto) {
           let fotoUrl = foto;
-          if (foto.startsWith('/uploads/') || foto.startsWith('uploads/')) {
-            fotoUrl = `${API_BASE_URL.replace('/api/v1', '')}${foto.startsWith('/') ? '' : '/'}${foto}`;
+          if (foto.startsWith("/uploads/") || foto.startsWith("uploads/")) {
+            fotoUrl = `${API_BASE_URL.replace("/api/v1", "")}${
+              foto.startsWith("/") ? "" : "/"
+            }${foto}`;
           }
-          
+
           fotos.push({
             foto_id: `existente_${index}`,
             image_url: fotoUrl,
-            tipo: 'existente'
+            tipo: "existente",
           });
         }
       });
     }
-    
+
     // Procesar foto_puesto individual si existe y no está ya en el array
     if (solicitudData.foto_puesto) {
       let fotoPuestoUrl = solicitudData.foto_puesto;
-      if (solicitudData.foto_puesto.startsWith('/uploads/') || solicitudData.foto_puesto.startsWith('uploads/')) {
-        fotoPuestoUrl = `${API_BASE_URL.replace('/api/v1', '')}${solicitudData.foto_puesto.startsWith('/') ? '' : '/'}${solicitudData.foto_puesto}`;
+      if (
+        solicitudData.foto_puesto.startsWith("/uploads/") ||
+        solicitudData.foto_puesto.startsWith("uploads/")
+      ) {
+        fotoPuestoUrl = `${API_BASE_URL.replace("/api/v1", "")}${
+          solicitudData.foto_puesto.startsWith("/") ? "" : "/"
+        }${solicitudData.foto_puesto}`;
       }
-      
-      const yaExiste = fotos.some(foto => foto.image_url === fotoPuestoUrl);
-      
+
+      const yaExiste = fotos.some((foto) => foto.image_url === fotoPuestoUrl);
+
       if (!yaExiste) {
         fotos.push({
-          foto_id: 'foto_puesto',
+          foto_id: "foto_puesto",
           image_url: fotoPuestoUrl,
-          tipo: 'existente'
+          tipo: "existente",
         });
       }
     }
-    
+
     console.log("Fotos reconstruidas:", fotos);
     return fotos;
   };
@@ -120,9 +139,12 @@ const Dashboard = () => {
     if (!token) return;
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/configuraciones/rubros`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(
+        `${API_BASE_URL}/configuraciones/rubros`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setConfiguracionesRubros(response.data);
     } catch (error) {
       console.error("Error al cargar configuraciones de rubros:", error);
@@ -136,7 +158,7 @@ const Dashboard = () => {
 
     try {
       const response = await axios.get(`${API_BASE_URL}/diversidad-rubros`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setDiversidadRubros(response.data);
     } catch (error) {
@@ -150,9 +172,12 @@ const Dashboard = () => {
     if (!token) return;
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/estadisticas/rubros/todas`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(
+        `${API_BASE_URL}/estadisticas/rubros/todas`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setRubrosStatsTodas(response.data);
     } catch (error) {
       console.error("Error al cargar estadísticas de rubros (todas):", error);
@@ -166,11 +191,14 @@ const Dashboard = () => {
 
     try {
       const response = await axios.get(`${API_BASE_URL}/estadisticas/rubros`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setRubrosStatsAprobadas(response.data);
     } catch (error) {
-      console.error("Error al cargar estadísticas de rubros (aprobadas):", error);
+      console.error(
+        "Error al cargar estadísticas de rubros (aprobadas):",
+        error
+      );
     }
   };
 
@@ -190,12 +218,12 @@ const Dashboard = () => {
           busqueda_termino: searchTerm || undefined,
         },
       });
-      
+
       console.log("Datos recibidos del backend:", response.data);
-      
+
       const solicitudesMapeadas = response.data.map((item) => {
         const fotosReconstruidas = reconstruirFotos(item.originalData || item);
-        
+
         return {
           ...item,
           originalData: item.originalData,
@@ -214,10 +242,10 @@ const Dashboard = () => {
           artesano_id: item.artesano_id,
           estado: item.estado,
           rubro_id: item.originalData?.rubro_id || 1,
-          fotosReconstruidas: fotosReconstruidas
+          fotosReconstruidas: fotosReconstruidas,
         };
       });
-      
+
       setSolicitudes(solicitudesMapeadas);
     } catch (error) {
       console.error("Error al obtener solicitudes:", error);
@@ -242,21 +270,27 @@ const Dashboard = () => {
     if (!token) return;
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/artesanos/exportar-pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      });
+      const response = await axios.get(
+        `${API_BASE_URL}/artesanos/exportar-pdf`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `listado_artesanos_${new Date().toISOString().split('T')[0]}.pdf`);
+      link.setAttribute(
+        "download",
+        `listado_artesanos_${new Date().toISOString().split("T")[0]}.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      alert('Listado de artesanos exportado correctamente a PDF');
+      alert("Listado de artesanos exportado correctamente a PDF");
     } catch (error) {
       console.error("Error al exportar artesanos:", error);
       alert("Error al exportar el listado de artesanos");
@@ -264,8 +298,8 @@ const Dashboard = () => {
   };
 
   // Filtrar solicitudes por rubro
-  const solicitudesFiltradas = solicitudes.filter(s => {
-    if (filtroRubro === 'all') return true;
+  const solicitudesFiltradas = solicitudes.filter((s) => {
+    if (filtroRubro === "all") return true;
     return s.rubro === filtroRubro;
   });
 
@@ -277,7 +311,7 @@ const Dashboard = () => {
       estado_solicitud: solicitud.estado,
       notas_admin: solicitud.originalData?.notas_admin || "",
       rubro_id: solicitud.rubro_id || 1,
-      descripcion_puesto: solicitud.descripcion_puesto || ""
+      descripcion_puesto: solicitud.descripcion_puesto || "",
     });
   };
 
@@ -285,20 +319,20 @@ const Dashboard = () => {
     const idToUpdate = editId || activeSolicitudId;
     const token = localStorage.getItem("access_token");
     if (!token || !idToUpdate) return;
-    
+
     try {
       // Primero actualizar el estado y notas
       await axios.patch(
         `${API_BASE_URL}/solicitudes/${idToUpdate}/estado`,
         {
           estado_solicitud: editData.estado_solicitud,
-          notas_admin: editData.notas_admin
+          notas_admin: editData.notas_admin,
         },
-        { 
-          headers: { 
+        {
+          headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -307,13 +341,13 @@ const Dashboard = () => {
         `${API_BASE_URL}/solicitudes/${idToUpdate}/modificar`,
         {
           rubro_id: editData.rubro_id,
-          descripcion: editData.descripcion_puesto
+          descripcion: editData.descripcion_puesto,
         },
-        { 
-          headers: { 
+        {
+          headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -324,27 +358,35 @@ const Dashboard = () => {
       fetchRubrosStatsAprobadas();
     } catch (error) {
       console.error("Error al actualizar la solicitud:", error);
-      alert("Error al actualizar la solicitud: " + (error.response?.data?.msg || error.message));
+      alert(
+        "Error al actualizar la solicitud: " +
+          (error.response?.data?.msg || error.message)
+      );
     }
   };
 
   const handleRejectRequest = async (id) => {
-    if (!window.confirm(`¿Rechazar la Solicitud ID ${id}? Esta acción no se puede deshacer.`)) return;
+    if (
+      !window.confirm(
+        `¿Rechazar la Solicitud ID ${id}? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
     const token = localStorage.getItem("access_token");
     if (!token) return;
-    
+
     try {
       await axios.patch(
         `${API_BASE_URL}/solicitudes/${id}/estado`,
-        { 
+        {
           estado_solicitud: "Rechazada",
-          notas_admin: "Solicitud rechazada por el administrador" 
+          notas_admin: "Solicitud rechazada por el administrador",
         },
-        { 
-          headers: { 
+        {
+          headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -354,13 +396,16 @@ const Dashboard = () => {
       fetchRubrosStatsAprobadas();
     } catch (error) {
       console.error("Error al rechazar:", error);
-      alert("Error al rechazar la solicitud: " + (error.response?.data?.msg || error.message));
+      alert(
+        "Error al rechazar la solicitud: " +
+          (error.response?.data?.msg || error.message)
+      );
     }
   };
 
   const handleViewDetails = (s) => {
     const fotosReconstruidas = reconstruirFotos(s.originalData || s);
-    
+
     const detallesCompletos = {
       ...s.originalData,
       nombre: s.nombre,
@@ -375,19 +420,19 @@ const Dashboard = () => {
       fecha_creacion: s.fecha_creacion,
       estado: s.estado,
       notas_admin: s.originalData?.notas_admin,
-      fotos: fotosReconstruidas
+      fotos: fotosReconstruidas,
     };
     setSolicitudDetails(detallesCompletos);
   };
-  
+
   const handleCancelEdit = () => {
     setEditId(null);
     setActiveSolicitudId(null);
-    setEditData({ 
-      estado_solicitud: "Pendiente", 
+    setEditData({
+      estado_solicitud: "Pendiente",
       notas_admin: "",
       rubro_id: 1,
-      descripcion_puesto: ""
+      descripcion_puesto: "",
     });
   };
 
@@ -398,7 +443,7 @@ const Dashboard = () => {
     if (solicitud.dimensiones) {
       return solicitud.dimensiones;
     }
-    return 'N/A';
+    return "N/A";
   };
 
   // RF17: Actualizar configuración de rubro
@@ -410,11 +455,11 @@ const Dashboard = () => {
       await axios.put(
         `${API_BASE_URL}/configuraciones/rubros/${rubroId}`,
         nuevosDatos,
-        { 
-          headers: { 
+        {
+          headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          } 
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -425,7 +470,10 @@ const Dashboard = () => {
       fetchRubrosStatsAprobadas();
     } catch (error) {
       console.error("Error al actualizar configuración:", error);
-      alert("Error al actualizar configuración: " + (error.response?.data?.msg || error.message));
+      alert(
+        "Error al actualizar configuración: " +
+          (error.response?.data?.msg || error.message)
+      );
     }
   };
 
@@ -451,19 +499,31 @@ const Dashboard = () => {
         <header className="gestion-header">
           <div className="header-main">
             <h1>Gestión de Solicitudes</h1>
-            <p>Administrá, filtrá y gestioná las solicitudes enviadas por los artesanos.</p>
+            <p>
+              Administrá, filtrá y gestioná las solicitudes enviadas por los
+              artesanos.
+            </p>
           </div>
-          
+
           <div className="header-actions">
-            <button 
-              className={`btn-configuracion ${showConfiguracion ? 'active' : ''}`}
+            <button
+              className={`btn-mapa ${showMapa ? "active" : ""}`}
+              onClick={() => setShowMapa(!showMapa)}
+            >
+              🗺️ {showMapa ? "Ocultar Mapa" : "Ver Mapa"}
+            </button>
+
+            <button
+              className={`btn-configuracion ${
+                showConfiguracion ? "active" : ""
+              }`}
               onClick={() => setShowConfiguracion(!showConfiguracion)}
             >
               <FiSettings size={18} />
               Configurar Rubros
             </button>
-            <button 
-              className={`btn-diversidad ${showDiversidad ? 'active' : ''}`}
+            <button
+              className={`btn-diversidad ${showDiversidad ? "active" : ""}`}
               onClick={() => setShowDiversidad(!showDiversidad)}
             >
               <FiPieChart size={18} />
@@ -472,12 +532,25 @@ const Dashboard = () => {
           </div>
         </header>
 
+        {showMapa && (
+          <div className="mapa-panel">
+            <div className="mapa-panel-header">
+              <h3>🗺️ Mapa de Parcelas - Vista de Administrador</h3>
+              <p>
+                Gestioná la disponibilidad de parcelas y consultá información de
+                artesanos
+              </p>
+            </div>
+            <MapaGrid />
+          </div>
+        )}
+
         {/* Panel: Configuración de Rubros (RF17) */}
         {showConfiguracion && (
           <div className="configuracion-panel">
             <h3>Configuración de Precios y Límites por Rubro</h3>
             <div className="configuracion-grid">
-              {configuracionesRubros.map(config => (
+              {configuracionesRubros.map((config) => (
                 <div key={config.rubro_id} className="configuracion-item">
                   <h4>{config.rubro_nombre}</h4>
                   <div className="config-inputs">
@@ -490,8 +563,11 @@ const Dashboard = () => {
                         value={config.precio_base || 0}
                         onChange={(e) => {
                           const nuevasConfigs = [...configuracionesRubros];
-                          const index = nuevasConfigs.findIndex(c => c.rubro_id === config.rubro_id);
-                          nuevasConfigs[index].precio_base = parseFloat(e.target.value) || 0;
+                          const index = nuevasConfigs.findIndex(
+                            (c) => c.rubro_id === config.rubro_id
+                          );
+                          nuevasConfigs[index].precio_base =
+                            parseFloat(e.target.value) || 0;
                           setConfiguracionesRubros(nuevasConfigs);
                         }}
                       />
@@ -501,29 +577,42 @@ const Dashboard = () => {
                       <input
                         type="number"
                         min="0"
-                        value={config.limite_puestos || ''}
+                        value={config.limite_puestos || ""}
                         onChange={(e) => {
                           const nuevasConfigs = [...configuracionesRubros];
-                          const index = nuevasConfigs.findIndex(c => c.rubro_id === config.rubro_id);
-                          nuevasConfigs[index].limite_puestos = e.target.value ? parseInt(e.target.value) : null;
+                          const index = nuevasConfigs.findIndex(
+                            (c) => c.rubro_id === config.rubro_id
+                          );
+                          nuevasConfigs[index].limite_puestos = e.target.value
+                            ? parseInt(e.target.value)
+                            : null;
                           setConfiguracionesRubros(nuevasConfigs);
                         }}
                         placeholder="Sin límite"
                       />
                     </div>
                     <div className="estado-limite">
-                      <span className={`badge ${config.disponible ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {config.disponible ? 'Disponible' : 'Límite Alcanzado'}
+                      <span
+                        className={`badge ${
+                          config.disponible ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      >
+                        {config.disponible ? "Disponible" : "Límite Alcanzado"}
                       </span>
-                      <span>{config.puestos_aprobados}/{config.limite_puestos || '∞'}</span>
+                      <span>
+                        {config.puestos_aprobados}/
+                        {config.limite_puestos || "∞"}
+                      </span>
                     </div>
                   </div>
                   <button
                     className="btn-guardar-config"
-                    onClick={() => handleActualizarConfiguracion(config.rubro_id, {
-                      precio_base: config.precio_base,
-                      limite_puestos: config.limite_puestos
-                    })}
+                    onClick={() =>
+                      handleActualizarConfiguracion(config.rubro_id, {
+                        precio_base: config.precio_base,
+                        limite_puestos: config.limite_puestos,
+                      })
+                    }
                   >
                     Guardar
                   </button>
@@ -538,29 +627,44 @@ const Dashboard = () => {
           <div className="diversidad-panel">
             <h3>Diversidad por Categorías - Estado de Límites</h3>
             <div className="diversidad-grid">
-              {diversidadRubros.map(rubro => (
-                <div key={rubro.rubro_id} className={`diversidad-item ${rubro.limite_alcanzado ? 'limite-alcanzado' : ''}`}>
+              {diversidadRubros.map((rubro) => (
+                <div
+                  key={rubro.rubro_id}
+                  className={`diversidad-item ${
+                    rubro.limite_alcanzado ? "limite-alcanzado" : ""
+                  }`}
+                >
                   <h4>{rubro.rubro_nombre}</h4>
                   <div className="diversidad-stats">
                     <div className="stat">
                       <span className="stat-label">Total Solicitudes:</span>
-                      <span className="stat-value">{rubro.total_solicitudes}</span>
+                      <span className="stat-value">
+                        {rubro.total_solicitudes}
+                      </span>
                     </div>
                     <div className="stat">
                       <span className="stat-label">Aprobadas:</span>
-                      <span className="stat-value aprobadas">{rubro.aprobadas}</span>
+                      <span className="stat-value aprobadas">
+                        {rubro.aprobadas}
+                      </span>
                     </div>
                     <div className="stat">
                       <span className="stat-label">Pendientes:</span>
-                      <span className="stat-value pendientes">{rubro.pendientes}</span>
+                      <span className="stat-value pendientes">
+                        {rubro.pendientes}
+                      </span>
                     </div>
                     <div className="stat">
                       <span className="stat-label">Límite:</span>
-                      <span className="stat-value limite">{rubro.disponibilidad}</span>
+                      <span className="stat-value limite">
+                        {rubro.disponibilidad}
+                      </span>
                     </div>
                     <div className="stat">
                       <span className="stat-label">Precio Base:</span>
-                      <span className="stat-value precio">${rubro.precio_base}</span>
+                      <span className="stat-value precio">
+                        ${rubro.precio_base}
+                      </span>
                     </div>
                   </div>
                   {rubro.limite_alcanzado && (
@@ -578,10 +682,10 @@ const Dashboard = () => {
         <div className="listado-usuarios-section">
           <div className="listado-header">
             <h2>Listado de Solicitudes</h2>
-            
+
             <div className="filtros-container">
               <div className="filtro-rol">
-                <button 
+                <button
                   className={`filtro-btn ${filter === "all" ? "active" : ""}`}
                   onClick={() => setFilter("all")}
                 >
@@ -590,14 +694,16 @@ const Dashboard = () => {
                 {Object.keys(ESTADOS).map((estado) => (
                   <button
                     key={estado}
-                    className={`filtro-btn ${filter === estado ? "active" : ""}`}
+                    className={`filtro-btn ${
+                      filter === estado ? "active" : ""
+                    }`}
                     onClick={() => setFilter(estado)}
                   >
                     {estado}
                   </button>
                 ))}
               </div>
-              
+
               <div className="busqueda-container">
                 <input
                   type="text"
@@ -607,10 +713,7 @@ const Dashboard = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && fetchSolicitudes()}
                 />
-                <button 
-                  className="btn-buscar"
-                  onClick={fetchSolicitudes}
-                >
+                <button className="btn-buscar" onClick={fetchSolicitudes}>
                   Buscar
                 </button>
                 {searchTerm && (
@@ -635,10 +738,14 @@ const Dashboard = () => {
               <div className="filtros-rubro-titulo">
                 <h3>Filtrar por Rubro</h3>
                 <p className="filtros-subtitulo">
-                  Aprobadas: {Object.values(rubrosStatsAprobadas).reduce((a, b) => a + b, 0)}
+                  Aprobadas:{" "}
+                  {Object.values(rubrosStatsAprobadas).reduce(
+                    (a, b) => a + b,
+                    0
+                  )}
                 </p>
               </div>
-              <button 
+              <button
                 className="btn-exportar-pdf"
                 onClick={handleExportArtesanosPDF}
                 title="Exportar listado de artesanos aprobados a PDF"
@@ -647,21 +754,32 @@ const Dashboard = () => {
                 Exportar Artesanos a PDF
               </button>
             </div>
-            
+
             <div className="filtro-rubros">
-              <button 
-                className={`filtro-rubro-btn ${filtroRubro === 'all' ? 'active' : ''}`}
-                onClick={() => setFiltroRubro('all')}
+              <button
+                className={`filtro-rubro-btn ${
+                  filtroRubro === "all" ? "active" : ""
+                }`}
+                onClick={() => setFiltroRubro("all")}
               >
                 <FiUsers size={16} />
                 Todos los Rubros
-                <span className="contador-rubro aprobadas">({Object.values(rubrosStatsAprobadas).reduce((a, b) => a + b, 0)})</span>
+                <span className="contador-rubro aprobadas">
+                  (
+                  {Object.values(rubrosStatsAprobadas).reduce(
+                    (a, b) => a + b,
+                    0
+                  )}
+                  )
+                </span>
               </button>
-              
-              {Object.keys(RUBROS).map(rubro => (
-                <button 
+
+              {Object.keys(RUBROS).map((rubro) => (
+                <button
                   key={rubro}
-                  className={`filtro-rubro-btn ${filtroRubro === rubro ? 'active' : ''}`}
+                  className={`filtro-rubro-btn ${
+                    filtroRubro === rubro ? "active" : ""
+                  }`}
                   onClick={() => setFiltroRubro(rubro)}
                 >
                   {rubro}
@@ -719,9 +837,7 @@ const Dashboard = () => {
                           {s.rubro}
                         </span>
                       </td>
-                      <td>
-                        {formatDimensiones(s)}
-                      </td>
+                      <td>{formatDimensiones(s)}</td>
                       <td>
                         <span
                           className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white estado-badge ${
@@ -734,7 +850,7 @@ const Dashboard = () => {
                       <td>
                         <div className="acciones-container">
                           {/* SOLO UN BOTÓN DE EDITAR QUE INCLUYE TODO */}
-                          <button 
+                          <button
                             className="btn-editar"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -744,7 +860,7 @@ const Dashboard = () => {
                           >
                             <FiEdit3 size={14} />
                           </button>
-                          <button 
+                          <button
                             className="btn-eliminar"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -754,7 +870,7 @@ const Dashboard = () => {
                           >
                             <FiTrash2 size={14} />
                           </button>
-                          <button 
+                          <button
                             className="btn-ver"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -773,7 +889,9 @@ const Dashboard = () => {
 
               {solicitudesFiltradas.length === 0 && (
                 <div className="no-resultados">
-                  <p>No se encontraron solicitudes con los filtros aplicados.</p>
+                  <p>
+                    No se encontraron solicitudes con los filtros aplicados.
+                  </p>
                 </div>
               )}
             </div>
@@ -787,7 +905,8 @@ const Dashboard = () => {
       </motion.div>
 
       <footer className="footer">
-        © {new Date().getFullYear()} Feria Artesanal — Todos los derechos reservados.
+        © {new Date().getFullYear()} Feria Artesanal — Todos los derechos
+        reservados.
       </footer>
 
       {/* Modal de Edición Unificado - AHORA INCLUYE TODO */}
@@ -796,14 +915,11 @@ const Dashboard = () => {
           <div className="modal-content modal-wide">
             <div className="modal-header">
               <h2>✍️ Gestionar Solicitud ID: {editId}</h2>
-              <button 
-                className="btn-cerrar"
-                onClick={handleCancelEdit}
-              >
+              <button className="btn-cerrar" onClick={handleCancelEdit}>
                 ×
               </button>
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Estado de Solicitud</label>
               <select
@@ -826,7 +942,10 @@ const Dashboard = () => {
               <select
                 value={editData.rubro_id}
                 onChange={(e) =>
-                  setEditData({ ...editData, rubro_id: parseInt(e.target.value) })
+                  setEditData({
+                    ...editData,
+                    rubro_id: parseInt(e.target.value),
+                  })
                 }
                 className="form-input"
               >
@@ -841,7 +960,10 @@ const Dashboard = () => {
               <textarea
                 value={editData.descripcion_puesto}
                 onChange={(e) =>
-                  setEditData({ ...editData, descripcion_puesto: e.target.value })
+                  setEditData({
+                    ...editData,
+                    descripcion_puesto: e.target.value,
+                  })
                 }
                 rows={3}
                 placeholder="Descripción del puesto del artesano..."
@@ -861,7 +983,8 @@ const Dashboard = () => {
                 className="form-input"
               />
               <small className="form-help">
-                Esta nota será enviada como notificación al artesano automáticamente.
+                Esta nota será enviada como notificación al artesano
+                automáticamente.
               </small>
             </div>
 
@@ -883,91 +1006,99 @@ const Dashboard = () => {
           <div className="modal-content modal-wide">
             <div className="modal-header">
               <h2>👁️ Detalles de {solicitudDetails.nombre}</h2>
-              <button 
+              <button
                 className="btn-cerrar"
                 onClick={() => setSolicitudDetails(null)}
               >
                 ×
               </button>
             </div>
-            
+
             <div className="detalles-container">
               <div className="detalle-item">
-                <strong>Nombre del Artesano:</strong> 
-                <span>{solicitudDetails.nombre || 'No especificado'}</span>
+                <strong>Nombre del Artesano:</strong>
+                <span>{solicitudDetails.nombre || "No especificado"}</span>
               </div>
-    
+
               <div className="detalle-item">
-                <strong>DNI:</strong> 
-                <span>{solicitudDetails.dni || 'No especificado'}</span>
+                <strong>DNI:</strong>
+                <span>{solicitudDetails.dni || "No especificado"}</span>
               </div>
-              
+
               <div className="detalle-item">
-                <strong>Teléfono:</strong> 
-                <span>{solicitudDetails.telefono || 'No especificado'}</span>
+                <strong>Teléfono:</strong>
+                <span>{solicitudDetails.telefono || "No especificado"}</span>
               </div>
-              
+
               <div className="detalle-item">
-                <strong>Rubro:</strong> 
+                <strong>Rubro:</strong>
                 <span
                   className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white rubro-badge ${
                     RUBROS[solicitudDetails.rubro]?.badgeColor || "bg-gray-500"
                   }`}
                 >
-                  {solicitudDetails.rubro || 'No especificado'}
+                  {solicitudDetails.rubro || "No especificado"}
                 </span>
               </div>
-              
+
               <div className="detalle-item">
-                <strong>Dimensiones:</strong> 
+                <strong>Dimensiones:</strong>
                 <span>
-                  {solicitudDetails.alto && solicitudDetails.ancho 
-                    ? `${solicitudDetails.alto}m x ${solicitudDetails.ancho}m` 
-                    : (solicitudDetails.dimensiones || 'No especificado')}
+                  {solicitudDetails.alto && solicitudDetails.ancho
+                    ? `${solicitudDetails.alto}m x ${solicitudDetails.ancho}m`
+                    : solicitudDetails.dimensiones || "No especificado"}
                 </span>
               </div>
-              
+
               <div className="detalle-item">
-                <strong>Estado:</strong> 
+                <strong>Estado:</strong>
                 <span
                   className={`px-2 py-1 inline-flex text-xs font-semibold rounded text-white estado-badge ${
                     ESTADOS[solicitudDetails.estado]?.badge || "bg-gray-500"
                   }`}
                 >
-                  {solicitudDetails.estado || 'Pendiente'}
+                  {solicitudDetails.estado || "Pendiente"}
                 </span>
               </div>
-              
+
               <div className="detalle-item">
-                <strong>Fecha de Solicitud:</strong> 
+                <strong>Fecha de Solicitud:</strong>
                 <span>
-                  {solicitudDetails.fecha_creacion 
-                    ? new Date(solicitudDetails.fecha_creacion).toLocaleDateString('es-ES')
-                    : 'No especificada'}
+                  {solicitudDetails.fecha_creacion
+                    ? new Date(
+                        solicitudDetails.fecha_creacion
+                      ).toLocaleDateString("es-ES")
+                    : "No especificada"}
                 </span>
               </div>
-              
+
               {solicitudDetails.fotos && solicitudDetails.fotos.length > 0 && (
                 <div className="detalle-foto-section">
                   <strong>Fotos del Puesto:</strong>
                   <div className="fotos-container">
                     {solicitudDetails.fotos.map((foto, index) => (
                       <div key={foto.foto_id || index} className="foto-item">
-                        <img 
-                          src={foto.image_url} 
-                          alt={`Foto del puesto ${index + 1}`} 
+                        <img
+                          src={foto.image_url}
+                          alt={`Foto del puesto ${index + 1}`}
                           className="foto-puesto"
                           onClick={() => ampliarImagen(foto.image_url)}
                           onError={(e) => {
-                            console.error("Error cargando imagen:", foto.image_url);
-                            e.target.style.display = 'none';
+                            console.error(
+                              "Error cargando imagen:",
+                              foto.image_url
+                            );
+                            e.target.style.display = "none";
                             const placeholder = e.target.nextElementSibling;
                             if (placeholder) {
-                              placeholder.style.display = 'flex';
+                              placeholder.style.display = "flex";
                             }
                           }}
                         />
-                        <div className="foto-placeholder" style={{display: 'none'}}>
+                        <div
+                          className="foto-placeholder"
+                          style={{ display: "none" }}
+                        >
                           <FiEye size={24} />
                           <span>Imagen no disponible</span>
                         </div>
@@ -977,41 +1108,52 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {(!solicitudDetails.fotos || solicitudDetails.fotos.length === 0) && solicitudDetails.foto_puesto && (
-                <div className="detalle-foto-section">
-                  <strong>Foto del Puesto:</strong>
-                  <div className="fotos-container">
-                    <div className="foto-item">
-                      <img 
-                        src={solicitudDetails.foto_puesto} 
-                        alt="Foto del puesto" 
-                        className="foto-puesto"
-                        onClick={() => ampliarImagen(solicitudDetails.foto_puesto)}
-                        onError={(e) => {
-                          console.error("Error cargando imagen:", solicitudDetails.foto_puesto);
-                          e.target.style.display = 'none';
-                          const placeholder = e.target.nextElementSibling;
-                          if (placeholder) {
-                            placeholder.style.display = 'flex';
+              {(!solicitudDetails.fotos ||
+                solicitudDetails.fotos.length === 0) &&
+                solicitudDetails.foto_puesto && (
+                  <div className="detalle-foto-section">
+                    <strong>Foto del Puesto:</strong>
+                    <div className="fotos-container">
+                      <div className="foto-item">
+                        <img
+                          src={solicitudDetails.foto_puesto}
+                          alt="Foto del puesto"
+                          className="foto-puesto"
+                          onClick={() =>
+                            ampliarImagen(solicitudDetails.foto_puesto)
                           }
-                        }}
-                      />
-                      <div className="foto-placeholder" style={{display: 'none'}}>
-                        <FiEye size={24} />
-                        <span>Imagen no disponible</span>
+                          onError={(e) => {
+                            console.error(
+                              "Error cargando imagen:",
+                              solicitudDetails.foto_puesto
+                            );
+                            e.target.style.display = "none";
+                            const placeholder = e.target.nextElementSibling;
+                            if (placeholder) {
+                              placeholder.style.display = "flex";
+                            }
+                          }}
+                        />
+                        <div
+                          className="foto-placeholder"
+                          style={{ display: "none" }}
+                        >
+                          <FiEye size={24} />
+                          <span>Imagen no disponible</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-              
+                )}
+
               <div className="detalle-descripcion">
                 <strong>Descripción del Puesto:</strong>
                 <div className="descripcion-box">
-                  {solicitudDetails.descripcion_puesto || 'Sin descripción proporcionada'}
+                  {solicitudDetails.descripcion_puesto ||
+                    "Sin descripción proporcionada"}
                 </div>
               </div>
-              
+
               {solicitudDetails.notas_admin && (
                 <div className="detalle-notas-admin">
                   <strong>Notas del Administrador:</strong>
@@ -1041,10 +1183,7 @@ const Dashboard = () => {
             <button className="btn-cerrar-modal" onClick={cerrarImagen}>
               <FiX size={24} />
             </button>
-            <img 
-              src={imagenAmpliada} 
-              alt="Imagen ampliada del puesto"
-            />
+            <img src={imagenAmpliada} alt="Imagen ampliada del puesto" />
           </div>
         </div>
       )}
