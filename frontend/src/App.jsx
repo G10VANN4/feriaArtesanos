@@ -15,7 +15,6 @@ import GestionUsuarios from "./pages/GestionUsuarios";
 import PerfilArtesano from "./pages/PerfilArtesano";
 import HistorialSolicitudes from "./pages/HistorialSolicitudes";
 import ArtesanoPredio from "./pages/ArtesanoPredio.jsx";
-import checkSession from "./utils/checkSession"; 
 import "./styles/App.css";
 
 const PrivateRoute = ({ children }) => {
@@ -28,14 +27,6 @@ const PrivateRoute = ({ children }) => {
 
 
 function App() {
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkSession();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <AuthProvider>
