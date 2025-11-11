@@ -187,7 +187,11 @@ const Navbar = () => {
       </div>
 
       <nav className="navbar-links">
-        {location.pathname !== "/" && <Link to="/">Inicio</Link>}
+        {location.pathname !== "/" &&
+          user?.rol_id === 1 && (
+            <Link to="/">Inicio</Link>
+          )}
+
 
         {isAuthenticated && user?.rol_id === 1 && tieneSolicitud && (
           <Link to="/predio">Predio</Link>
