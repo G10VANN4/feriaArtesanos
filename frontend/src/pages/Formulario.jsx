@@ -243,7 +243,7 @@ const Formulario = () => {
                 max="99999999"
                 className="form-input"
               />
-              <small className="form-help">Máximo 8 dígitos</small>
+              <small className="form-help"> El DNI debe tener 8 dígitos</small>
             </div>
 
             {/* Teléfono */}
