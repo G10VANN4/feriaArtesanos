@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import axios from "../services/api/axiosConfig";
 import Navbar from "../components/Navbar";
 import "../styles/App.css";
 
 const Formulario = () => {
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -146,7 +146,7 @@ const Formulario = () => {
       formDataToSend.append('terminos_aceptados', formData.terminos_aceptados);
 
       // Agregar imágenes como archivos
-      imagenes.forEach((file, index) => {
+      imagenes.forEach((file) => {
         formDataToSend.append('fotos', file);
       });
 
@@ -197,7 +197,7 @@ const Formulario = () => {
         navigate("/historial"); 
         setLoading(false);
         return; 
-  }
+      }
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -379,11 +379,17 @@ const Formulario = () => {
                 />
                 <span className="checkbox-label">
                   Acepto los{" "}
-                  <a href="/terminos" target="_blank" rel="noopener noreferrer">
+                  <Link 
+                    to="/terminos" 
+                    className="terminos-link"
+                  >
                     términos y condiciones
-                  </a>
+                  </Link>
                 </span>
               </label>
+              <small className="form-help">
+                confirma que ha leído y acepta los términos y condiciones
+              </small>
             </div>
 
             <button

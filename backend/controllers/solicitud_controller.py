@@ -56,8 +56,8 @@ def crear_solicitud():
             if not data.get(campo):
                 return jsonify({'msg': f'Campo de perfil "{campo}" es requerido'}), 400
 
-        if len(str(data['dni'])) > 8:
-            return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
+        if len(str(data['dni'])) != 8:
+            return jsonify({'msg': 'El DNI debe tener 8 caracteres'}), 400
         if len(data['nombre']) > 20:
             return jsonify({'msg': 'El nombre no puede tener más de 20 caracteres'}), 400
         if len(data['telefono']) > 20:
@@ -253,8 +253,8 @@ def editar_solicitud(solicitud_id):
                 cambios_realizados = True
         
         if 'dni' in data and data['dni']:
-            if len(str(data['dni'])) > 8:
-                return jsonify({'msg': 'El DNI no puede tener más de 8 caracteres'}), 400
+            if len(str(data['dni'])) != 8:
+                return jsonify({'msg': 'El DNI debe tener 8 caracteres'}), 400
 
             dni_existente = Artesano.query.filter(
                 Artesano.dni == data['dni'],

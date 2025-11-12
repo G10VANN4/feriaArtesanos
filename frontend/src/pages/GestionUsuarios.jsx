@@ -30,7 +30,7 @@ const GestionUsuarios = () => {
   // Estados para edición
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
-  const [modoEdicion, setModoEdicion] = useState(false);
+  const [, setModoEdicion] = useState(false);
 
   // Verificar permisos
   useEffect(() => {
@@ -283,6 +283,7 @@ const GestionUsuarios = () => {
                   onChange={(e) => setFormData({...formData, rol_id: e.target.value})}
                   required
                 >
+                  <option value="">Seleccionar rol</option>
                   <option value="2">Administrador</option>
                   <option value="3">Organizador</option>
                 </select>

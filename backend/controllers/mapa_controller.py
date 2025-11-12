@@ -31,11 +31,11 @@ def get_artesano_from_user():
 def obtener_parcelas_mapa():
     """Obtener parcelas para artesano - VERSIÓN SIMPLIFICADA"""
     try:
-        print("🎯 INICIANDO obtener_parcelas_mapa")
+        print(" INICIANDO obtener_parcelas_mapa")
         
         # Obtener identity DIRECTAMENTE
         user_identity = get_jwt_identity()
-        print(f"🎯 User identity: {user_identity}")
+        print(f" User identity: {user_identity}")
         
         # Extraer ID del usuario
         if isinstance(user_identity, str) and user_identity.startswith('user_'):
@@ -43,7 +43,7 @@ def obtener_parcelas_mapa():
         else:
             usuario_id = int(user_identity)
             
-        print(f"🎯 Usuario ID: {usuario_id}")
+        print(f" Usuario ID: {usuario_id}")
         
         # OBTENER DATOS DEL MAPA
         mapa = Mapa.query.first()
@@ -99,7 +99,7 @@ def obtener_parcelas_mapa():
         
     except Exception as e:
         import traceback
-        print(f"❌ ERROR en obtener_parcelas_mapa: {str(e)}")
+        print(f" ERROR en obtener_parcelas_mapa: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
@@ -203,7 +203,7 @@ def seleccionar_parcela(parcela_id):
         db.session.add(nueva_solicitud_parcela)
         db.session.commit()
         
-        print(f"✅ Parcela {parcela_id} asignada EXITOSAMENTE a artesano {artesano.artesano_id}")
+        print(f" Parcela {parcela_id} asignada EXITOSAMENTE a artesano {artesano.artesano_id}")
         
         # Preparar respuesta - SIN USAR RELACIONES
         parcela_data = {

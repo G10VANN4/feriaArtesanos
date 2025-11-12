@@ -4737,3 +4737,53 @@ h3 {
     padding: 0.5rem;
   }
 }
+/* Estilos para la página de términos */
+.terminos-page-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.terminos-page-content {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.terminos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #8b4513;
+  padding-bottom: 15px;
+}
+
+.terminos-header h1 {
+  color: #8b4513;
+  margin: 0;
+}
+
+.btn-volver {
+  background: #8b4513;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-volver:hover {
+  background: #5a6268;
+}
+
+.terminos-content-page {
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+
+.terminos-actions {
+  text-align: center;
+  margin-top: 30px;
+}

@@ -1,4 +1,3 @@
-import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -15,6 +14,8 @@ import GestionUsuarios from "./pages/GestionUsuarios";
 import PerfilArtesano from "./pages/PerfilArtesano";
 import HistorialSolicitudes from "./pages/HistorialSolicitudes";
 import ArtesanoPredio from "./pages/ArtesanoPredio.jsx";
+import TerminosPage from "./pages/TerminosPage"; 
+
 import "./styles/App.css";
 
 const PrivateRoute = ({ children }) => {
@@ -25,9 +26,7 @@ const PrivateRoute = ({ children }) => {
   return children;
 };
 
-
 function App() {
-
   return (
     <AuthProvider>
       <Router>
@@ -37,6 +36,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Registro />} />
             <Route path="/formulario" element={<Formulario />} />
+            <Route path="/terminos" element={<TerminosPage />} /> 
             <Route path="/mi-perfil" element={<PerfilArtesano />} />
             <Route
               path="/historial-solicitudes"
@@ -79,4 +79,3 @@ function App() {
 }
 
 export default App;
-

@@ -842,11 +842,11 @@ class AdminController:
 def obtener_parcelas_admin():
     """Obtener parcelas para admin - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
     try:
-        print("🎯 INICIANDO obtener_parcelas_admin")
+        print(" INICIANDO obtener_parcelas_admin")
         
         # Obtener identity DIRECTAMENTE
         user_identity = get_jwt_identity()
-        print(f"🎯 User identity: {user_identity}")
+        print(f" User identity: {user_identity}")
         
         # Extraer ID del usuario - MANERA DIRECTA
         if isinstance(user_identity, str) and user_identity.startswith('user_'):
@@ -854,7 +854,7 @@ def obtener_parcelas_admin():
         else:
             usuario_id = int(user_identity)
             
-        print(f"🎯 Usuario ID extraído: {usuario_id}")
+        print(f" Usuario ID extraído: {usuario_id}")
         
         # Verificar si el usuario existe y es admin
         usuario = Usuario.query.get(usuario_id)

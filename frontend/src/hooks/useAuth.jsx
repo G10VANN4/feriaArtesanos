@@ -5,6 +5,7 @@ import { authService } from '../services/api/authService';
 const AuthContext = createContext();
 
 // Hook personalizado
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -63,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       return { 
         success: true, 
         token: result.access_token,
-        rol_id: result.rol_id,  // ← Esto es crucial
+        rol_id: result.rol_id,  
         email: email 
       };
     } catch (error) {
