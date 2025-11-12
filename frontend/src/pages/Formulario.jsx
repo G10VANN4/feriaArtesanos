@@ -362,8 +362,8 @@ const Formulario = () => {
               >
                 <option value="">Seleccione un rubro</option>
                 <option value="1">Gastronomía</option>
-                <option value="2">Artesanía</option>
-                <option value="3">Reventa</option>
+                <option value="2">Reventa</option>
+                <option value="3">Artesanía</option>
               </select>
             </div>
 

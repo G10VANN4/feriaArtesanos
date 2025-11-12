@@ -949,9 +949,9 @@ const Dashboard = () => {
                 }
                 className="form-input"
               >
-                <option value={1}>Artesanías</option>
-                <option value={2}>Gastronomía</option>
-                <option value={3}>Reventa</option>
+                <option value={1}>Gastronomía</option>
+                <option value={2}>Reventa</option>
+                <option value={3}>Artesanías</option>
               </select>
             </div>
 

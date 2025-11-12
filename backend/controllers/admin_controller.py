@@ -113,7 +113,7 @@ class AdminController:
                 Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
             ).scalar() or 0
 
-            limite_alcanzado = count_aprobadas >= limite_maximo
+            limite_alcanzado = count_aprobadas == limite_maximo
             
             return limite_alcanzado, count_aprobadas, limite_maximo
 
@@ -224,9 +224,18 @@ class AdminController:
         comentarios_admin = data.get('notas_admin')
         administrador = permisos
         
+        print(f"DEBUG: Actualizando estado de solicitud {solicitud_id}")
+        print(f"DEBUG - Estado nuevo: {estado_nombre_nuevo}")
+        print(f"DEBUG - Comentarios: {comentarios_admin}")
+        
+        # Validar que el estado esté presente
+        if not estado_nombre_nuevo:
+            return {'msg': 'El campo "estado_solicitud" es requerido.'}, 400
+
         nuevo_estado = EstadoSolicitud.query.filter_by(nombre=estado_nombre_nuevo).first()
         if not nuevo_estado:
-             return {'msg': f'El estado "{estado_nombre_nuevo}" no es válido.'}, 400
+            print(f"DEBUG: Estado '{estado_nombre_nuevo}' no encontrado en la base de datos")
+            return {'msg': f'El estado "{estado_nombre_nuevo}" no es válido.'}, 400
 
         try:
             solicitud = Solicitud.query.get(solicitud_id)
@@ -235,8 +244,11 @@ class AdminController:
 
             estado_anterior = solicitud.estado_rel.nombre if solicitud.estado_rel else 'Sin estado'
             
+            print(f"DEBUG: Estado anterior: {estado_anterior}")
+            
             # Verificar límite si se está aprobando
             if estado_nombre_nuevo == 'Aprobada':
+                print("DEBUG: Verificando límite de rubro para aprobación")
                 limite_alcanzado, count_actual, limite_maximo = AdminController.verificar_limite_rubro(solicitud.rubro_id)
                 if limite_alcanzado:
                     return {
@@ -246,13 +258,15 @@ class AdminController:
                         'limite_maximo': limite_maximo
                     }, 400
 
+            # Actualizar el estado
             solicitud.estado_solicitud_id = nuevo_estado.estado_solicitud_id
             solicitud.comentarios_admin = comentarios_admin
             solicitud.administrador_id = administrador.administrador_id 
             solicitud.fecha_gestion = datetime.utcnow()
 
+            # Crear notificación para el artesano
             if solicitud.artesano_id:
-                mensaje_notificacion = f"El estado de tu solicitud cambio de ' {estado_anterior} ' a ' {estado_nombre_nuevo} '."
+                mensaje_notificacion = f"El estado de tu solicitud cambió de '{estado_anterior}' a '{estado_nombre_nuevo}'."
                 
                 if comentarios_admin:
                     mensaje_notificacion += f" Comentarios del administrador: {comentarios_admin}"
@@ -263,10 +277,12 @@ class AdminController:
                 )
 
             db.session.commit()
+            print(f"DEBUG: Solicitud {solicitud_id} actualizada exitosamente a {estado_nombre_nuevo}")
             return {'msg': f'Estado de la solicitud {solicitud_id} actualizado a {estado_nombre_nuevo}'}, 200
 
         except Exception as e:
             db.session.rollback()
+            print(f"DEBUG: Error al actualizar solicitud: {str(e)}")
             return {'msg': 'Error interno al actualizar la solicitud.', 'error': str(e)}, 500
 
     @staticmethod
@@ -1102,12 +1118,6 @@ def actualizar_estado_route(solicitud_id):
         solicitud_id, 
         data
     )
-    return jsonify(response), status
-
-@admin_bp.route('/solicitudes/<int:solicitud_id>/cancelar', methods=['PATCH'])
-@jwt_required()
-def cancelar_solicitud_admin_route(solicitud_id):
-    response, status = AdminController.cancelar_solicitud_admin(solicitud_id)
     return jsonify(response), status
 
 @admin_bp.route('/<int:solicitud_id>/fotos', methods=['GET'])
