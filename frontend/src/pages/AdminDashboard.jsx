@@ -914,7 +914,7 @@ const Dashboard = () => {
         <div className="modal-overlay">
           <div className="modal-content modal-wide">
             <div className="modal-header">
-              <h2>✍️ Gestionar Solicitud ID: {editId}</h2>
+              <h2>Gestionar Solicitud ID: {editId}</h2>
               <button className="btn-cerrar" onClick={handleCancelEdit}>
                 ×
               </button>
@@ -1005,7 +1005,7 @@ const Dashboard = () => {
         <div className="modal-overlay">
           <div className="modal-content modal-wide">
             <div className="modal-header">
-              <h2>👁️ Detalles de {solicitudDetails.nombre}</h2>
+              <h2>Detalles de {solicitudDetails.nombre}</h2>
               <button
                 className="btn-cerrar"
                 onClick={() => setSolicitudDetails(null)}
