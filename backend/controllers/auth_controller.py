@@ -180,3 +180,22 @@ def dev_view_sessions():
     except Exception as e:
         print(f" Error en dev-view-sessions: {str(e)}")
         return jsonify({'msg': 'Error al ver sesiones'}), 500
+    
+@auth_bp.route('/check-auth', methods=['GET'])
+@jwt_required()
+def check_auth():
+    """Endpoint que verifica auth y actualiza actividad"""
+    try:
+        current_user = get_jwt_identity()
+        user_id = current_user.split('_')[1] if '_' in current_user else current_user
+        
+        # ✅ ACTUALIZAR ACTIVIDAD del usuario
+        session_manager.update_activity(user_id)
+        
+        return jsonify({
+            'authenticated': True,
+            'user_id': user_id
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'authenticated': False, 'msg': str(e)}), 401
