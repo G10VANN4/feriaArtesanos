@@ -511,7 +511,7 @@ const Dashboard = () => {
               className={`btn-mapa ${showMapa ? "active" : ""}`}
               onClick={() => setShowMapa(!showMapa)}
             >
-              🗺️ {showMapa ? "Ocultar Mapa" : "Ver Mapa"}
+              {showMapa ? "Ocultar Mapa" : "Ver Mapa"}
             </button>
 
             <button
@@ -536,7 +536,7 @@ const Dashboard = () => {
         {showMapa && (
           <div className="mapa-panel">
             <div className="mapa-panel-header">
-              <h3>🗺️ Mapa de Parcelas - Vista de Administrador</h3>
+              <h3>Mapa de Parcelas </h3>
               <p>
                 Gestioná la disponibilidad de parcelas y consultá información de
                 artesanos
@@ -670,7 +670,7 @@ const Dashboard = () => {
                   </div>
                   {rubro.limite_alcanzado && (
                     <div className="alerta-limite">
-                      ⚠️ Límite alcanzado - Revisar nuevas solicitudes
+                      Límite alcanzado - Revisar nuevas solicitudes
                     </div>
                   )}
                 </div>

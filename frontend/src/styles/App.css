@@ -4527,26 +4527,20 @@ h3 {
 
 .modos-administrador button {
   padding: 0.5rem 1rem;
-  border: 1px solid #dee2e6;
-  background: white;
+  border: 1px solid #8b4513;
+  background: #8b4513;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .modos-administrador button.active {
-  background: #3498db;
+  background: #8b4513;
   color: white;
-  border-color: #2980b9;
+  border-color:#8b4513;
 }
 
-.acciones-lote {
-  background: #e3f2fd;
-  padding: 1rem;
-  border-radius: 6px;
-  border: 1px solid #bbdefb;
-  margin-bottom: 1rem;
-}
+
 
 .botones-accion {
   display: flex;
@@ -4737,6 +4731,160 @@ h3 {
     padding: 0.5rem;
   }
 }
+
+
+.panel-asignar-rubro {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  margin-bottom: 1rem;
+}
+
+.selector-rubro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.selector-rubro label {
+  font-weight: 600;
+  color: #5c4033;
+  white-space: nowrap;
+}
+
+.selector-rubro select {
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: white;
+  min-width: 200px;
+  color: #5c4033;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.selector-rubro select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.selector-rubro select:hover:not(:disabled) {
+  border-color: #adb5bd;
+}
+
+.selector-rubro select:disabled {
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.selector-rubro select option {
+  padding: 0.5rem;
+  color: #5c4033;
+  background: white;
+}
+
+.cargando-texto {
+  color: #6c757d;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.sin-rubros {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+
+
+.acciones-rubro p {
+  margin: 0 0 0.5rem 0;
+  color: #5c4033;
+  font-weight: 600;
+}
+
+.acciones-rubro p strong {
+  color: #5c4033;
+}
+
+.botones-accion {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-asignar-rubro {
+  background: #8b4513;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-asignar-rubro:hover:not(:disabled) {
+  background: #8b4513;
+  transform: translateY(-1px);
+}
+
+.btn-asignar-rubro:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-cancelar {
+  background: #95a5a6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-cancelar:hover:not(:disabled) {
+  background: #7f8c8d;
+  transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .selector-rubro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .selector-rubro select {
+    min-width: 100%;
+  }
+  
+  .botones-accion {
+    flex-direction: column;
+  }
+  
+  .btn-asignar-rubro,
+  .btn-cancelar {
+    width: 100%;
+  }
+}
+
+
+
+
 /* Estilos para la página de términos */
 .terminos-page-container {
   max-width: 900px;

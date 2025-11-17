@@ -86,9 +86,9 @@ def init_db():
         # 3. Colores (necesarios para Rubro)
         if Color.query.count() == 0:
             colores = [
-                Color(nombre='Rojo', codigo_hex='#FF0000'),
-                Color(nombre='Verde', codigo_hex='#00FF00'),
-                Color(nombre='Azul', codigo_hex='#0000FF')
+                Color(nombre='Naranja Gastronomía', codigo_hex='#FF6B35'),
+                Color(nombre='Turquesa Reventa', codigo_hex='#2EC4B6'),
+                Color(nombre='Morado Artesanías', codigo_hex='#6A4C93')
             ]
             db.session.add_all(colores)
             db.session.flush()
@@ -136,18 +136,17 @@ def init_db():
 
         # 7. insertar Rubros 
         if Rubro.query.count() == 0:
-            # Obtener los colores recién insertados
-            color_rojo = Color.query.filter_by(nombre='Rojo').first()
-            color_verde = Color.query.filter_by(nombre='Verde').first()
-            color_azul = Color.query.filter_by(nombre='Azul').first()
+            color_gastronomia = Color.query.filter_by(nombre='Naranja Gastronomía').first()
+            color_reventa = Color.query.filter_by(nombre='Turquesa Reventa').first()
+            color_artesanias = Color.query.filter_by(nombre='Morado Artesanías').first()
             
             rubros = [
-                Rubro(tipo='Gastronomía', precio_parcela=100000, color_id=color_rojo.color_id),
-                Rubro(tipo='Reventa', precio_parcela=25000, color_id=color_verde.color_id),
-                Rubro(tipo='Artesanías', precio_parcela=15000, color_id=color_azul.color_id)
+                Rubro(tipo='Gastronomía', precio_parcela=0, color_id=color_gastronomia.color_id),
+                Rubro(tipo='Reventa', precio_parcela=0, color_id=color_reventa.color_id),
+                Rubro(tipo='Artesanías', precio_parcela=0, color_id=color_artesanias.color_id)
             ]
             db.session.add_all(rubros)
-            print("✅ Rubros insertados")
+            print("Rubros insertados")
             datos_insertados = True
 
         # 7.5 CREAR TIPO_PARcELA BÁSICO SI NO EXISTE
@@ -158,43 +157,7 @@ def init_db():
             print("✅ Tipo de parcela básica creado")
             datos_insertados = True
 
-        # 8. INICIALIZAR MAPA Y PARCELAS AUTOMÁTICAMENTE
-        if Mapa.query.count() == 0:
-            # Obtener el tipo de parcela que acabamos de crear o que ya existe
-            tipo_parcela = Tipo_parcela.query.filter_by(tipo='Básica').first()
-            
-            # Crear mapa principal (10x10)
-            mapa = Mapa(
-                cant_total_filas=10,
-                cant_total_columnas=10
-            )
-            db.session.add(mapa)
-            db.session.flush()
-            
-            # Obtener rubros existentes
-            rubros = Rubro.query.all()
-            if rubros:
-                # Crear parcelas (10x10 grid)
-                parcelas = []
-                for fila in range(1, 11):
-                    for columna in range(1, 11):
-                        # Asignar rubro de forma cíclica
-                        rubro_index = (fila + columna) % len(rubros)
-                        rubro_id = rubros[rubro_index].rubro_id
-                        
-                        parcela = Parcela(
-                            rubro_id=rubro_id,
-                            mapa_id=mapa.mapa_id,
-                            tipo_parcela_id=tipo_parcela.tipo_parcela_id,  # ← USAR EL ID REAL
-                            fila=fila,
-                            columna=columna,
-                            habilitada=True
-                        )
-                        parcelas.append(parcela)
-                
-                db.session.add_all(parcelas)
-                print("✅ Mapa y parcelas inicializados automáticamente (10x10)")
-                datos_insertados = True
+    
 
 
         

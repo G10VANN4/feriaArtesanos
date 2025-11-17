@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../hooks/useAuth"; // Asegúrate de importar tu hook de autenticación
+import { useAuth } from "../hooks/useAuth";
 
 const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
-  const { user } = useAuth(); // Obtener información del usuario
+  const { user } = useAuth();
   const [parcelas, setParcelas] = useState([]);
   const [mapaInfo, setMapaInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -10,15 +10,17 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
   const [parcelaConfirmando, setParcelaConfirmando] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
 
-  // Estados específicos para administrador
-  const [parcelasSeleccionadasAdmin, setParcelasSeleccionadasAdmin] = useState(
-    []
-  );
-  const [modoAdmin, setModoAdmin] = useState("ver"); // 'ver', 'deshabilitar', 'info'
+  // Estados para administrador
+  const [parcelasSeleccionadasAdmin, setParcelasSeleccionadasAdmin] = useState([]);
+  const [modoAdmin, setModoAdmin] = useState("ver"); // 'ver', 'deshabilitar', 'asignar_rubro'
   const [infoParcela, setInfoParcela] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [rubros, setRubros] = useState([]);
+  const [rubroSeleccionado, setRubroSeleccionado] = useState("");
+  const [cambiandoRubro, setCambiandoRubro] = useState(false);
+  const [cargandoRubros, setCargandoRubros] = useState(false);
 
-  // Determinar si es administrador/organizador
+  // Determinar roles
   const esAdmin = user?.rol_id === 2 || user?.rol_id === 3;
   const esArtesano = user?.rol_id === 1;
 
@@ -31,20 +33,11 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
   // Función para obtener headers
   const getHeaders = () => {
     try {
-      // Intenta obtener el token con ambas claves posibles
-      const token =
-        localStorage.getItem("access_token") || localStorage.getItem("token");
-      console.log("🔑 Token encontrado:", token ? "SÍ" : "NO");
-      console.log(
-        "🔑 Clave usada:",
-        localStorage.getItem("access_token") ? "access_token" : "token"
-      );
-
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       if (!token) {
         setError("No estás autenticado. Por favor, inicia sesión nuevamente.");
         return null;
       }
-
       return {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -73,56 +66,65 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
         headers: headers,
       });
 
-      console.log("📊 Status:", response.status);
-      console.log("📊 URL:", endpointParcelas);
-
-      // Verificar si la respuesta es JSON
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const textResponse = await response.text();
-        console.error("❌ El servidor devolvió HTML/texto en lugar de JSON:");
-
-        if (
-          textResponse.includes("<!doctype") ||
-          textResponse.includes("<html")
-        ) {
-          setError(
-            `Error: Se recibió una página HTML. Verifica que el backend esté corriendo en ${API_BASE_URL}`
-          );
-        } else {
-          setError(`Error del servidor: ${textResponse.substring(0, 200)}`);
-        }
-        return;
-      }
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("✅ Datos recibidos:", data);
-
-        if (data.mapa) {
-          setParcelas(data.parcelas || []);
-          setMapaInfo(data.mapa);
-        } else {
-          setError("El servidor no devolvió información del mapa");
-        }
-      } else {
+      if (!response.ok) {
         if (response.status === 401) {
           setError("Sesión expirada. Por favor, inicia sesión nuevamente.");
         } else if (response.status === 403) {
           setError("No tienes permisos para acceder al mapa");
-        } else if (response.status === 404) {
-          setError("Endpoint no encontrado. Verifica la URL del servidor.");
         } else {
           setError(`Error ${response.status}: No se pudo cargar el mapa`);
         }
+        return;
+      }
+
+      const data = await response.json();
+      console.log("Datos recibidos:", data);
+
+      if (data.mapa) {
+        setParcelas(data.parcelas || []);
+        setMapaInfo(data.mapa);
+      } else {
+        setError("El servidor no devolvió información del mapa");
       }
     } catch (error) {
-      console.error("💥 Error de conexión:", error);
-      setError(
-        `Error de conexión: ${error.message}. Verifica que el backend esté corriendo en ${API_BASE_URL}`
-      );
+      console.error("Error de conexión:", error);
+      setError(`Error de conexión: ${error.message}. Verifica que el backend esté corriendo en ${API_BASE_URL}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Cargar rubros disponibles desde la base de datos
+  const cargarRubros = async () => {
+    try {
+      setCargandoRubros(true);
+      const headers = getHeaders();
+      if (!headers) {
+        setCargandoRubros(false);
+        return;
+      }
+
+      console.log("Cargando rubros desde la base de datos...");
+      const response = await fetch(`${API_BASE_URL}/api/v1/rubros`, {
+        method: "GET",
+        headers: headers,
+      });
+
+      console.log("Respuesta rubros:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Rubros cargados desde BD:", data);
+        setRubros(data);
+      } else {
+        console.error("Error al cargar rubros:", response.status);
+        setRubros([]);
+      }
+    } catch (error) {
+      console.error("Error cargando rubros:", error);
+      setRubros([]);
+    } finally {
+      setCargandoRubros(false);
     }
   };
 
@@ -136,13 +138,9 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     if (!parcela || !parcela.parcela_id) return "parcela-celda desconocida";
 
     if (esAdmin) {
-      // Lógica para administrador
-      const estaSeleccionadaAdmin = parcelasSeleccionadasAdmin.includes(
-        parcela.parcela_id
-      );
+      const estaSeleccionadaAdmin = parcelasSeleccionadasAdmin.includes(parcela.parcela_id);
       if (estaSeleccionadaAdmin) return "parcela-celda seleccionada-admin";
     } else {
-      // Lógica para artesano
       const estaSeleccionada = parcelasSeleccionadas.some(
         (ps) => ps.parcela_id === parcela.parcela_id
       );
@@ -154,23 +152,44 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     return "parcela-celda disponible";
   };
 
+  // Obtener estilo de color basado en rubro
+  const getParcelaStyle = (parcela) => {
+    if (!parcela || !parcela.rubro_info) return {};
+
+    // Si está deshabilitada, mostrar en gris
+    if (!parcela.habilitada) {
+      return { backgroundColor: "#6c757d" };
+    }
+
+    // Si está ocupada, mostrar color más oscuro
+    if (parcela.ocupada) {
+      return { 
+        backgroundColor: parcela.rubro_info.color,
+        filter: "brightness(0.7)"
+      };
+    }
+
+    // Disponible - mostrar color normal del rubro
+    return { backgroundColor: parcela.rubro_info.color };
+  };
+
   // Manejar clic en parcela - UNIFICADO
   const handleParcelaClick = (parcela) => {
     if (!parcela || !parcela.parcela_id) return;
 
     if (esAdmin) {
-      // Comportamiento para administrador
       if (modoAdmin === "ver") {
         setInfoParcela(parcela);
         setMostrarModal(true);
       } else if (modoAdmin === "deshabilitar") {
+        toggleSeleccionParcelaAdmin(parcela);
+      } else if (modoAdmin === "asignar_rubro") {
         toggleSeleccionParcelaAdmin(parcela);
       } else if (modoAdmin === "info" && parcela.ocupada) {
         setInfoParcela(parcela);
         setMostrarModal(true);
       }
     } else {
-      // Comportamiento para artesano
       if (!parcela.habilitada) return;
       if (parcela.ocupada) return;
       if (onParcelaSeleccionada) {
@@ -188,6 +207,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     );
   };
 
+  // Deshabilitar parcelas seleccionadas
   const deshabilitarParcelas = async () => {
     try {
       const headers = getHeaders();
@@ -215,6 +235,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     }
   };
 
+  // Habilitar parcelas seleccionadas
   const habilitarParcelas = async () => {
     try {
       const headers = getHeaders();
@@ -242,50 +263,50 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     }
   };
 
-  // Función para confirmar la selección de parcela
-  const confirmarSeleccionParcela = async () => {
-    if (!parcelasSeleccionadas.length) return;
+  // Asignar rubro a parcelas seleccionadas
+  const asignarRubroParcelas = async () => {
+    if (!rubroSeleccionado) {
+      setError("Por favor selecciona un rubro");
+      return;
+    }
 
     try {
-      setConfirmando(true);
-      const parcela = parcelasSeleccionadas[0]; // Artesano solo selecciona una
-
+      setCambiandoRubro(true);
       const headers = getHeaders();
       if (!headers) return;
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/parcelas/${parcela.parcela_id}/seleccionar`,
-        {
-          method: "POST",
-          headers: headers,
-          body: JSON.stringify({ parcela_id: parcela.parcela_id }),
-        }
-      );
+      const promises = parcelasSeleccionadasAdmin.map(async (parcelaId) => {
+        const response = await fetch(
+          `${API_BASE_URL}/api/v1/admin/parcelas/${parcelaId}/rubro`,
+          {
+            method: "PUT",
+            headers: headers,
+            body: JSON.stringify({ rubro_id: parseInt(rubroSeleccionado) }),
+          }
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        setParcelaConfirmando(parcela);
-        // Opcional: llamar a onParcelaSeleccionada para limpiar la selección
-        if (onParcelaSeleccionada) {
-          onParcelaSeleccionada(null);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Error en parcela ${parcelaId}`);
         }
-        setError(null);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Error al confirmar la parcela");
-      }
+
+        return response.json();
+      });
+
+      await Promise.all(promises);
+      
+      await cargarParcelas();
+      setParcelasSeleccionadasAdmin([]);
+      setRubroSeleccionado("");
+      setModoAdmin("ver");
+      setError(null);
     } catch (error) {
-      setError(`Error: ${error.message}`);
+      setError(`Error al asignar rubro: ${error.message}`);
     } finally {
-      setConfirmando(false);
+      setCambiandoRubro(false);
     }
   };
 
-  // Función para obtener información de la parcela seleccionada
-  const getParcelaSeleccionadaInfo = () => {
-    if (!parcelasSeleccionadas.length) return null;
-    return parcelasSeleccionadas[0];
-  };
 
   // Helper para tooltip
   const getParcelaTitle = (parcela) => {
@@ -308,7 +329,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
       title += " - DISPONIBLE";
     }
 
-    if (esAdmin && modoAdmin === "deshabilitar") {
+    if (esAdmin && (modoAdmin === "deshabilitar" || modoAdmin === "asignar_rubro")) {
       title += " - Click para seleccionar/deseleccionar";
     }
 
@@ -318,14 +339,18 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
   // Helper para cursor
   const getParcelaCursor = (parcela) => {
     if (esAdmin) {
-      if (modoAdmin === "deshabilitar") return "pointer";
+      if (modoAdmin === "deshabilitar" || modoAdmin === "asignar_rubro") return "pointer";
       if (modoAdmin === "info" && !parcela.ocupada) return "not-allowed";
       return "pointer";
     } else {
-      return parcela?.habilitada && !parcela?.ocupada
-        ? "pointer"
-        : "not-allowed";
+      return parcela?.habilitada && !parcela?.ocupada ? "pointer" : "not-allowed";
     }
+  };
+
+  // Obtener color de un rubro
+  const getColorRubro = (rubro) => {
+    if (!rubro) return "#CCCCCC";
+    return rubro.color_rel?.codigo_hex || "#CCCCCC";
   };
 
   // Verificación de autenticación
@@ -346,6 +371,9 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
       return;
     }
     cargarParcelas();
+    if (esAdmin) {
+      cargarRubros();
+    }
   }, []);
 
   // Renderizado condicional según el rol
@@ -353,12 +381,8 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     return (
       <div className="mapa-grid-simple">
         <div className="mapa-header">
-          <h2>
-            {esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}
-          </h2>
-          <button className="btn-actualizar" disabled>
-            🔄
-          </button>
+          <h2>{esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}</h2>
+          <button className="btn-actualizar" disabled>🔄</button>
         </div>
         <div className="cargando-parcelas">Cargando mapa...</div>
       </div>
@@ -369,12 +393,8 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     return (
       <div className="mapa-grid-simple">
         <div className="mapa-header">
-          <h2>
-            {esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}
-          </h2>
-          <button className="btn-actualizar" onClick={cargarParcelas}>
-            🔄
-          </button>
+          <h2>{esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}</h2>
+          <button className="btn-actualizar" onClick={cargarParcelas}>🔄</button>
         </div>
         <div className="error-mapa">
           <strong>Error:</strong> {error}
@@ -396,12 +416,8 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     return (
       <div className="mapa-grid-simple">
         <div className="mapa-header">
-          <h2>
-            {esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}
-          </h2>
-          <button className="btn-actualizar" onClick={cargarParcelas}>
-            🔄
-          </button>
+          <h2>{esAdmin ? "Panel de Administración" : "Selecciona tu parcela"}</h2>
+          <button className="btn-actualizar" onClick={cargarParcelas}>🔄</button>
         </div>
         <div className="error-mapa">
           No se encontró información del mapa.
@@ -411,17 +427,14 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
     );
   }
 
-  const { cant_total_filas: totalFilas, cant_total_columnas: totalColumnas } =
-    mapaInfo;
+  const { cant_total_filas: totalFilas, cant_total_columnas: totalColumnas } = mapaInfo;
 
   return (
     <div className={`mapa-grid-simple ${esAdmin ? "modo-admin" : ""}`}>
       {/* Header del mapa */}
       <div className="mapa-header">
         <h2>
-          {esAdmin
-            ? "🗺️ Panel de Administración - Mapa"
-            : "Selecciona tu parcela"}
+          {esAdmin ? "Panel de Administración - Mapa" : "Selecciona tu parcela"}
           ({totalFilas}x{totalColumnas})
         </h2>
         <button
@@ -444,13 +457,19 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
                 setParcelasSeleccionadasAdmin([]);
               }}
             >
-              👁️ Modo Ver
+              Modo Ver
             </button>
             <button
               className={modoAdmin === "deshabilitar" ? "active" : ""}
               onClick={() => setModoAdmin("deshabilitar")}
             >
-              🚫 Modo Deshabilitar/Habilitar
+              Modo Deshabilitar/Habilitar
+            </button>
+            <button
+              className={modoAdmin === "asignar_rubro" ? "active" : ""}
+              onClick={() => setModoAdmin("asignar_rubro")}
+            >
+              Asignar Rubro
             </button>
             <button
               className={modoAdmin === "info" ? "active" : ""}
@@ -459,50 +478,88 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
                 setParcelasSeleccionadasAdmin([]);
               }}
             >
-              👤 Información Artesanos
+              Información Artesanos
             </button>
           </div>
 
-          {modoAdmin === "deshabilitar" &&
-            parcelasSeleccionadasAdmin.length > 0 && (
-              <div className="acciones-lote">
-                <p>
-                  <strong>{parcelasSeleccionadasAdmin.length}</strong> parcelas
-                  seleccionadas
-                </p>
-                <div className="botones-accion">
-                  <button
-                    onClick={deshabilitarParcelas}
-                    className="btn-deshabilitar"
-                  >
-                    🚫 Deshabilitar Seleccionadas
-                  </button>
-                  <button onClick={habilitarParcelas} className="btn-habilitar">
-                    ✅ Habilitar Seleccionadas
-                  </button>
-                  <button
-                    onClick={() => setParcelasSeleccionadasAdmin([])}
-                    className="btn-cancelar"
-                  >
-                    ❌ Cancelar
-                  </button>
-                </div>
+          {/* Panel de acciones según el modo */}
+          {modoAdmin === "deshabilitar" && parcelasSeleccionadasAdmin.length > 0 && (
+            <div className="acciones-lote">
+              <p><strong>{parcelasSeleccionadasAdmin.length}</strong> parcelas seleccionadas</p>
+              <div className="botones-accion">
+                <button onClick={deshabilitarParcelas} className="btn-deshabilitar">
+                  Deshabilitar Seleccionadas
+                </button>
+                <button onClick={habilitarParcelas} className="btn-habilitar">
+                  Habilitar Seleccionadas
+                </button>
+                <button onClick={() => setParcelasSeleccionadasAdmin([])} className="btn-cancelar">
+                  Cancelar
+                </button>
               </div>
-            )}
+            </div>
+          )}
+
+          {modoAdmin === "asignar_rubro" && (
+            <div className="panel-asignar-rubro">
+              <div className="selector-rubro">
+                <label>Seleccionar Rubro:</label>
+                <select
+                  value={rubroSeleccionado}
+                  onChange={(e) => setRubroSeleccionado(e.target.value)}
+                  disabled={cargandoRubros}
+                >
+                  <option value="">-- {cargandoRubros ? "Cargando rubros..." : "Selecciona un rubro"} --</option>
+                  {rubros.map((rubro) => (
+                    <option key={rubro.rubro_id} value={rubro.rubro_id}>
+                      {rubro.tipo} ({getColorRubro(rubro)})
+                    </option>
+                  ))}
+                </select>
+                {cargandoRubros && <span className="cargando-texto">Cargando rubros...</span>}
+              </div>
+
+              {rubros.length === 0 && !cargandoRubros && (
+                <div className="sin-rubros">
+                  <p>No hay rubros disponibles en la base de datos.</p>
+                </div>
+              )}
+
+              {parcelasSeleccionadasAdmin.length > 0 && rubros.length > 0 && (
+                <div className="acciones-rubro">
+                  <p><strong>{parcelasSeleccionadasAdmin.length}</strong> parcelas seleccionadas</p>
+                  <div className="botones-accion">
+                    <button 
+                      onClick={asignarRubroParcelas} 
+                      className="btn-asignar-rubro"
+                      disabled={cambiandoRubro || !rubroSeleccionado}
+                    >
+                      {cambiandoRubro ? "Asignando..." : "Asignar Rubro"}
+                    </button>
+                    <button 
+                      onClick={() => setParcelasSeleccionadasAdmin([])} 
+                      className="btn-cancelar"
+                    >
+                      Limpiar Selección
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="info-modo">
-            <p>
-              <strong>Modo actual:</strong>{" "}
-              {modoAdmin === "ver"
-                ? "Visualización"
-                : modoAdmin === "deshabilitar"
-                ? "Gestión de disponibilidad"
-                : "Información de artesanos"}
-            </p>
+            <p><strong>Modo actual:</strong> {
+              modoAdmin === "ver" ? "Visualización" :
+              modoAdmin === "deshabilitar" ? "Gestión de disponibilidad" :
+              modoAdmin === "asignar_rubro" ? "Asignación de rubros" :
+              "Información de artesanos"
+            }</p>
           </div>
         </div>
       )}
 
+      {/* Grid de parcelas */}
       <div className="parcelas-grid-dinamico">
         {/* Encabezados de columnas */}
         <div className="grid-coordenadas">
@@ -524,6 +581,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
                   {[...Array(totalColumnas)].map((_, columnaIndex) => {
                     const columna = columnaIndex + 1;
                     const parcela = getParcelaByCoords(fila, columna);
+                    const estiloParcela = getParcelaStyle(parcela);
 
                     return (
                       <div
@@ -533,11 +591,15 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
                         title={getParcelaTitle(parcela)}
                         style={{
                           cursor: getParcelaCursor(parcela),
+                          ...estiloParcela
                         }}
                       >
                         <span className="parcela-coordenadas">
                           {fila},{columna}
                         </span>
+                        {parcela?.ocupada && (
+                          <span className="indicador-ocupada"></span>
+                        )}
                       </div>
                     );
                   })}
@@ -548,6 +610,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
         </div>
       </div>
 
+      {/* Sección de confirmación para artesanos */}
       {esArtesano && parcelasSeleccionadas.length > 0 && (
         <div className="confirmar-seleccion">
           <button
@@ -556,17 +619,11 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
             disabled={confirmando}
           >
             {confirmando ? (
-              <>
-                <span>🔄 Confirmando...</span>
-              </>
+              <span>Confirmando...</span>
             ) : parcelaConfirmando ? (
-              <>
-                <span>✅ Parcela Confirmada</span>
-              </>
+              <span>Parcela Confirmada</span>
             ) : (
-              <>
-                <span>📍 Confirmar Parcela Seleccionada</span>
-              </>
+              <span>Confirmar Parcela Seleccionada</span>
             )}
           </button>
 
@@ -592,7 +649,7 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
         </div>
       )}
 
-      {/* Leyenda (ADAPTATIVA) */}
+      {/* Leyenda */}
       <div className={esAdmin ? "leyenda-admin" : "leyenda-minima"}>
         <div className="leyenda-item">
           <div className="leyenda-color disponible"></div>
@@ -607,10 +664,27 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
           <span>{esAdmin ? "No Disponible" : "No disponible"}</span>
         </div>
         {esAdmin && (
-          <div className="leyenda-item">
-            <div className="leyenda-color seleccionada-admin"></div>
-            <span>Seleccionada para acción</span>
-          </div>
+          <>
+            <div className="leyenda-item">
+              <div className="leyenda-color seleccionada-admin"></div>
+              <span>Seleccionada para acción</span>
+            </div>
+            {/* Mostrar colores de rubros disponibles */}
+            {rubros.length > 0 && (
+              <div className="rubros-leyenda">
+                <h4>Rubros Disponibles:</h4>
+                {rubros.map((rubro) => (
+                  <div key={rubro.rubro_id} className="leyenda-item">
+                    <div 
+                      className="leyenda-color" 
+                      style={{ backgroundColor: getColorRubro(rubro) }}
+                    ></div>
+                    <span>{rubro.tipo}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
         {!esAdmin && (
           <div className="leyenda-item">
@@ -623,17 +697,20 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
       {/* Información del mapa */}
       <div className="mapa-info">
         <p>
-          <strong>Dimensiones:</strong> {totalFilas} filas × {totalColumnas}{" "}
-          columnas
+          <strong>Dimensiones:</strong> {totalFilas} filas × {totalColumnas} columnas
         </p>
         <p>
           <strong>Total parcelas:</strong> {parcelas.length} cargadas
         </p>
         {esAdmin && (
-          <p>
-            <strong>Rol:</strong>{" "}
-            {user?.rol_id === 2 ? "Administrador" : "Organizador"}
-          </p>
+          <>
+            <p>
+              <strong>Rol:</strong> {user?.rol_id === 2 ? "Administrador" : "Organizador"}
+            </p>
+            <p>
+              <strong>Rubros cargados:</strong> {rubros.length}
+            </p>
+          </>
         )}
       </div>
 
@@ -655,34 +732,37 @@ const MapaGrid = ({ onParcelaSeleccionada, parcelasSeleccionadas = [] }) => {
               </p>
 
               {infoParcela.rubro_info && (
-                <p>
-                  <strong>Rubro:</strong> {infoParcela.rubro_info.tipo}
-                </p>
+                <div className="info-rubro">
+                  <p><strong>Rubro:</strong> {infoParcela.rubro_info.tipo}</p>
+                  <div className="color-muestra" style={{ 
+                    backgroundColor: infoParcela.rubro_info.color,
+                    width: '20px', 
+                    height: '20px', 
+                    display: 'inline-block',
+                    marginLeft: '10px',
+                    border: '1px solid #ccc'
+                  }}></div>
+                </div>
               )}
 
               {infoParcela.ocupada && infoParcela.artesano_info && (
                 <div className="info-artesano">
                   <h4>Información del Artesano:</h4>
-                  <p>
-                    <strong>Nombre:</strong> {infoParcela.artesano_info.nombre}
-                  </p>
-                  <p>
-                    <strong>DNI:</strong> {infoParcela.artesano_info.dni}
-                  </p>
-                  <p>
-                    <strong>Teléfono:</strong>{" "}
-                    {infoParcela.artesano_info.telefono}
-                  </p>
+                  <p><strong>Nombre:</strong> {infoParcela.artesano_info.nombre}</p>
+                  <p><strong>DNI:</strong> {infoParcela.artesano_info.dni}</p>
+                  <p><strong>Teléfono:</strong> {infoParcela.artesano_info.telefono}</p>
                 </div>
               )}
             </div>
 
-            <button
-              className="btn-cerrar-modal"
-              onClick={() => setMostrarModal(false)}
-            >
-              Cerrar
-            </button>
+            <div className="modal-actions">
+              <button
+                className="btn-cerrar-modal"
+                onClick={() => setMostrarModal(false)}
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
