@@ -15,7 +15,7 @@ import PerfilArtesano from "./pages/PerfilArtesano";
 import HistorialSolicitudes from "./pages/HistorialSolicitudes";
 import ArtesanoPredio from "./pages/ArtesanoPredio.jsx";
 import TerminosPage from "./pages/TerminosPage"; 
-
+import ConfigurarMapa from "./pages/ConfigurarMapa";
 import "./styles/App.css";
 
 const PrivateRoute = ({ children }) => {
@@ -38,6 +38,7 @@ function App() {
             <Route path="/formulario" element={<Formulario />} />
             <Route path="/terminos" element={<TerminosPage />} /> 
             <Route path="/mi-perfil" element={<PerfilArtesano />} />
+            <Route path="/configurar-mapa" element={<ConfigurarMapa />} />
             <Route
               path="/historial-solicitudes"
               element={<HistorialSolicitudes />}

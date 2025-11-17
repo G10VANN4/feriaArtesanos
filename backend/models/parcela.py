@@ -4,9 +4,11 @@ class Parcela(db.Model):
     __tablename__ = 'Parcela'
     
     parcela_id = db.Column(db.Integer, primary_key=True)
-    rubro_id = db.Column(db.Integer, db.ForeignKey('Rubro.rubro_id'), nullable=False)
+
+    rubro_id = db.Column(db.Integer, db.ForeignKey('Rubro.rubro_id'), nullable=True)
     mapa_id = db.Column(db.Integer, db.ForeignKey('Mapa.mapa_id'), nullable=False)
-    tipo_parcela_id = db.Column(db.Integer, db.ForeignKey('Tipo_parcela.tipo_parcela_id'), nullable=False)
+    tipo_parcela_id = db.Column(db.Integer, db.ForeignKey('Tipo_parcela.tipo_parcela_id'), nullable=True)
+
 
     fila = db.Column(db.Integer, nullable=False)
     columna = db.Column(db.Integer, nullable=False)
@@ -22,6 +24,7 @@ class Parcela(db.Model):
             'columna': self.columna,
             'habilitada': self.habilitada
         }
+
 
     def cambiar_estado_parcela(self, estado: bool):
         self.habilitada = estado

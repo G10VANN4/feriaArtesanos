@@ -307,7 +307,17 @@ const Navbar = () => {
                 )}
               </div>
             )}
+            {isAuthenticated && user?.rol_id === 3 && (
+              <>
+                <Link to="/configurar-mapa" className="btn-config">
+                  Configurar Mapa
+                </Link>
 
+                <Link to="/gestion-usuarios" className="btn-config">
+                  Gestión de Usuarios
+                </Link>
+              </>
+            )}
             <span className="user-greeting">
               Hola, {ROLES[user?.rol_id] || "Usuario"}
             </span>

@@ -17,6 +17,7 @@ from controllers.admin_controller import admin_bp
 from controllers.usuarios_controller import usuarios_bp
 from controllers.notification_controller import notification_bp
 from controllers.mapa_controller import parcela_bp
+from controllers.organizador_controller import organizador_bp
 
 load_dotenv()
 
@@ -39,6 +40,7 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(usuarios_bp, url_prefix='/api/usuarios')
 app.register_blueprint(notification_bp)
 app.register_blueprint(parcela_bp)
+app.register_blueprint(organizador_bp, url_prefix="/api")
 
 if __name__ == '__main__':
     print("=" * 70)
