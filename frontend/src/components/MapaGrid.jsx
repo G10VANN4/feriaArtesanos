@@ -597,15 +597,6 @@ const MapaGrid = ({
             >
               Asignar Rubro a parcelas
             </button>
-            <button
-              className={modoAdmin === "info" ? "active" : ""}
-              onClick={() => {
-                setModoAdmin("info");
-                setParcelasSeleccionadasAdmin([]);
-              }}
-            >
-              Información Artesanos
-            </button>
           </div>
 
           {/* Panel de acciones según el modo */}
@@ -742,14 +733,6 @@ const MapaGrid = ({
       {/* Leyenda */}
       <div className={esAdmin ? "leyenda-admin" : "leyenda-minima"}>
         
-
-        {!esAdmin && (
-          <div className="leyenda-item">
-            <div className="leyenda-color seleccionada"></div>
-            <span>Seleccionada</span>
-          </div>
-        )}
-
         {/* Mostrar colores de rubros disponibles para admin */}
         {esAdmin && rubros.length > 0 && (
           <div className="rubros-leyenda">

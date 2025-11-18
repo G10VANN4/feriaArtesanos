@@ -64,7 +64,7 @@ const ArtesanoPredio = () => {
       if (!estadoInfo.aprobada) {
         motivo = `La solicitud está  ${estadoInfo.nombre}`;
       } else if (infoParcelas.solicitudCompletada) {
-        motivo = `Ya completaste todas las ${solicitud.parcelas_necesarias} parcelas necesarias`;
+        motivo = `Ya completaste las ${solicitud.parcelas_necesarias} parcelas necesarias`;
       } else if (infoParcelas.totalAsignadas >= solicitud.parcelas_necesarias) {
         motivo = `Ya tenes ${infoParcelas.totalAsignadas} de ${solicitud.parcelas_necesarias} parcelas asignadas`;
       } else {
@@ -436,12 +436,6 @@ const ArtesanoPredio = () => {
                 </div>
               ) : infoValidacion ? (
                 <>
-                  <div className="info-item destacado">
-                    <span className={`estado ${infoValidacion.puede_solicitar_parcelas ? 'activo' : 'inactivo'}`}>
-                      {infoValidacion.puede_solicitar_parcelas ? 'Puede seleccionar' : 'No puede seleccionar'}
-                    </span>
-                  </div>
-
                   {infoValidacion.puede_solicitar_parcelas && (
                     <>
                       <div className="info-item">
