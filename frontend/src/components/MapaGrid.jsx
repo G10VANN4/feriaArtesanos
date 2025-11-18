@@ -30,6 +30,21 @@ const MapaGrid = ({
     ? `${API_BASE_URL}/api/v1/admin/parcelas`
     : `${API_BASE_URL}/api/v1/mapa/parcelas`;
 
+  // Función para calcular dimensiones del mapa
+  const calcularDimensionesMapa = (parcelasArray) => {
+    if (!parcelasArray || parcelasArray.length === 0) {
+      return { totalFilas: 0, totalColumnas: 0 };
+    }
+    
+    const maxFila = Math.max(...parcelasArray.map(p => p.fila));
+    const maxColumna = Math.max(...parcelasArray.map(p => p.columna));
+    
+    return {
+      totalFilas: maxFila,
+      totalColumnas: maxColumna
+    };
+  };
+
   const getHeaders = () => {
     try {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -74,30 +89,34 @@ const MapaGrid = ({
     return "Disponible para selección";
   };
 
+  const inicializarConParcelasPadre = () => {
+    if (parcelasMapa && parcelasMapa.length > 0) {
+      console.log("Inicializando con parcelas del padre:", parcelasMapa.length);
+      setParcelas(parcelasMapa);
+      const dimensiones = calcularDimensionesMapa(parcelasMapa);
+      setMapaInfo({
+        mapa_id: 1,
+        cant_total_filas: dimensiones.totalFilas,
+        cant_total_columnas: dimensiones.totalColumnas
+      });
+      return true;
+    }
+    return false;
+  };
+
   const cargarParcelas = async () => {
+    // Si ya tenemos parcelas del padre, no cargar del backend
+    if (parcelasMapa && parcelasMapa.length > 0) {
+      console.log("✅ Ya tenemos parcelas del padre, omitiendo carga del backend");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
       const headers = getHeaders();
       if (!headers) {
-        setLoading(false);
-        return;
-      }
-
-      if (parcelasMapa && parcelasMapa.length > 0) {
-        console.log("Usando parcelas del componente padre:", parcelasMapa.length);
-        setParcelas(parcelasMapa);
-        
-        if (parcelasMapa.length > 0) {
-          const maxFila = Math.max(...parcelasMapa.map(p => p.fila));
-          const maxColumna = Math.max(...parcelasMapa.map(p => p.columna));
-          setMapaInfo({
-            mapa_id: 1,
-            cant_total_filas: maxFila,
-            cant_total_columnas: maxColumna
-          });
-        }
         setLoading(false);
         return;
       }
@@ -119,7 +138,7 @@ const MapaGrid = ({
       }
 
       const data = await response.json();
-      console.log("Datos recibidos:", data);
+      console.log("Datos recibidos del backend:", data);
 
       if (data.mapa) {
         setParcelas(data.parcelas || []);
@@ -308,7 +327,14 @@ const MapaGrid = ({
       );
 
       if (response.ok) {
-        await cargarParcelas();
+        // Si estamos usando parcelas del padre, recargar desde el padre
+        if (parcelasMapa && parcelasMapa.length > 0) {
+          console.log("Recargando parcelas desde el componente padre...");
+          // Forzar recarga llamando a cargarParcelas que detectará parcelasMapa
+          await cargarParcelas();
+        } else {
+          await cargarParcelas();
+        }
         setParcelasSeleccionadasAdmin([]);
         setModoAdmin("ver");
       } else {
@@ -335,7 +361,14 @@ const MapaGrid = ({
       );
 
       if (response.ok) {
-        await cargarParcelas();
+        // Si estamos usando parcelas del padre, recargar desde el padre
+        if (parcelasMapa && parcelasMapa.length > 0) {
+          console.log("Recargando parcelas desde el componente padre...");
+          // Forzar recarga llamando a cargarParcelas que detectará parcelasMapa
+          await cargarParcelas();
+        } else {
+          await cargarParcelas();
+        }
         setParcelasSeleccionadasAdmin([]);
         setModoAdmin("ver");
       } else {
@@ -378,7 +411,14 @@ const MapaGrid = ({
 
       await Promise.all(promises);
       
-      await cargarParcelas();
+      // Si estamos usando parcelas del padre, recargar desde el padre
+      if (parcelasMapa && parcelasMapa.length > 0) {
+        console.log("🔄 Recargando parcelas desde el componente padre...");
+        await cargarParcelas();
+      } else {
+        await cargarParcelas();
+      }
+      
       setParcelasSeleccionadasAdmin([]);
       setRubroSeleccionado("");
       setModoAdmin("ver");
@@ -407,15 +447,53 @@ const MapaGrid = ({
     return true;
   };
 
+  // Efecto principal - inicialización
   useEffect(() => {
     if (!verificarAutenticacion()) {
       return;
     }
-    cargarParcelas();
+
+    console.log("Inicializando MapaGrid...");
+    console.log("parcelasMapa recibidas:", parcelasMapa?.length || 0);
+
+    // Siempre inicializar con parcelas del padre si están disponibles
+    const inicializadoConPadre = inicializarConParcelasPadre();
+    
+    // Solo cargar del backend si NO tenemos parcelas del padre
+    if (!inicializadoConPadre) {
+      console.log("No hay parcelas del padre, cargando desde backend...");
+      cargarParcelas();
+    } else {
+      console.log("apa inicializado con parcelas del componente padre");
+    }
+
+    // Cargar rubros solo si es admin
     if (esAdmin) {
       cargarRubros();
     }
+  }, []); // Solo se ejecuta una vez al montar
+
+  // Efecto para actualizar cuando cambian las parcelas del padre
+  useEffect(() => {
+    if (parcelasMapa && parcelasMapa.length > 0) {
+      console.log("Actualizando parcelas desde el padre:", parcelasMapa.length);
+      setParcelas(parcelasMapa);
+      const dimensiones = calcularDimensionesMapa(parcelasMapa);
+      setMapaInfo({
+        mapa_id: 1,
+        cant_total_filas: dimensiones.totalFilas,
+        cant_total_columnas: dimensiones.totalColumnas
+      });
+    }
   }, [parcelasMapa]);
+
+  // Calcular dimensiones para el render
+  const dimensiones = mapaInfo ? {
+    totalFilas: mapaInfo.cant_total_filas,
+    totalColumnas: mapaInfo.cant_total_columnas
+  } : calcularDimensionesMapa(parcelas);
+
+  const { totalFilas, totalColumnas } = dimensiones;
 
   if (loading) {
     return (
@@ -445,7 +523,7 @@ const MapaGrid = ({
     );
   }
 
-  if (!mapaInfo) {
+  if (!mapaInfo && parcelas.length === 0) {
     return (
       <div className="mapa-grid-simple">
         <div className="mapa-header">
@@ -460,8 +538,6 @@ const MapaGrid = ({
     );
   }
 
-  const { cant_total_filas: totalFilas, cant_total_columnas: totalColumnas } = mapaInfo;
-
   return (
     <div className={`mapa-grid-simple ${esAdmin ? "modo-admin" : ""}`}>
       {/* Header del mapa */}
@@ -469,6 +545,7 @@ const MapaGrid = ({
         <h2>
           {esAdmin ? "Panel de Administración - Mapa" : "Selecciona tu parcela"}
           ({totalFilas}x{totalColumnas})
+          {parcelasMapa && parcelasMapa.length > 0 && " [Desde componente padre]"}
         </h2>
         <button
           className="btn-actualizar"
@@ -604,6 +681,9 @@ const MapaGrid = ({
               modoAdmin === "asignar_rubro" ? "Asignación de rubros" :
               "Información de artesanos"
             }</p>
+            {parcelasMapa && parcelasMapa.length > 0 && (
+              <p><strong>Fuente:</strong> Componente padre ({parcelasMapa.length} parcelas)</p>
+            )}
           </div>
         </div>
       )}
@@ -661,18 +741,7 @@ const MapaGrid = ({
 
       {/* Leyenda */}
       <div className={esAdmin ? "leyenda-admin" : "leyenda-minima"}>
-        <div className="leyenda-item">
-          <div className="leyenda-color disponible"></div>
-          <span>Disponible</span>
-        </div>
-        <div className="leyenda-item">
-          <div className="leyenda-color ocupada"></div>
-          <span>{esAdmin ? "Ocupada por Artesano" : "Ocupada"}</span>
-        </div>
-        <div className="leyenda-item">
-          <div className="leyenda-color deshabilitada"></div>
-          <span>{esAdmin ? "No Disponible" : "No disponible"}</span>
-        </div>
+        
 
         {!esAdmin && (
           <div className="leyenda-item">
@@ -705,6 +774,7 @@ const MapaGrid = ({
         </p>
         <p>
           <strong>Total parcelas:</strong> {parcelas.length} cargadas
+          {parcelasMapa && parcelasMapa.length > 0 && ""}
         </p>
         {esArtesano && infoValidacion && (
           <p>

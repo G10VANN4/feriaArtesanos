@@ -5029,15 +5029,13 @@ h3 {
 .btn-guardar:hover {
   background-color: #a25b23;
 }
-
-
 .parcela.seleccionable {
   cursor: pointer;
-  border: 2px solid #8B4513;
+  border: 2px solid #4CAF50;
 }
 
 .parcela.seleccionable:hover {
-  background-color: rgba(139, 69, 19, 0.2);
+  background-color: rgba(76, 175, 80, 0.2);
   transform: scale(1.05);
 }
 
@@ -5048,40 +5046,10 @@ h3 {
 }
 
 .parcela.seleccionada {
-  background-color: #FF6B35 !important; /* Naranja fuerte */
-  border: 4px solid #FF4500 !important; /* Rojo anaranjado */
-  box-shadow: 0 0 20px rgba(255, 107, 53, 0.8);
-  transform: scale(1.15);
-  z-index: 100;
-  position: relative;
-  animation: pulse-selected 2s infinite;
+  background-color: #4CAF50 !important;
+  border: 3px solid #2E7D32 !important;
 }
 
-@keyframes pulse-selected {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.8);
-  }
-  50% {
-    box-shadow: 0 0 0 15px rgba(255, 107, 53, 0.4);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0);
-  }
-}
-
-/* Texto blanco en parcelas seleccionadas para mejor contraste */
-.parcela.seleccionada .parcela-coordenadas {
-  color: white !important;
-  font-weight: bold;
-  font-size: 1.1em;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
-}
-
-/* Efecto hover para parcelas seleccionadas */
-.parcela.seleccionada:hover {
-  background-color: #FF4500 !important;
-  transform: scale(1.2);
-}
 .parcela.ocupada {
   background-color: #f44336 !important;
 }
@@ -5116,27 +5084,30 @@ h3 {
   cursor: not-allowed;
 }
 
+.info-validacion-artesano {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 0;
+}
 
 .estado-validacion.activo {
-  color: #8B4513; /* Marrón oscuro */
+  color: #28a745;
   font-weight: bold;
-  font-size: 1.1em;
 }
 
 .estado-validacion.inactivo {
-  color: #8B4513; /* Marrón oscuro */
+  color: #dc3545;
   font-weight: bold;
-  font-size: 1.1em;
 }
 
 .ya-tiene-parcela-info {
-  background: #F5F5DC; /* Marrón claro */
-  color: #8B4513; /* Marrón oscuro */
-  padding: 10px;
-  border-radius: 6px;
-  margin-top: 10px;
-  font-weight: 600;
-  border-left: 4px solid #8B4513;
+  background: #d4edda;
+  color: #155724;
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 8px;
 }
 
 /* Resaltar parcelas del mismo rubro */
@@ -5382,25 +5353,11 @@ h3 {
 }
 
 .ya-tiene-parcela, .no-puede-solicitar, .sin-info {
-  background: #F5F5DC; /* Marrón claro */
-  border: 2px solid #D2B48C;
-  color: #8B4513; /* Marrón oscuro */
   text-align: center;
-  padding: 25px;
-  border-radius: 12px;
-  margin: 15px 0;
-}
-.ya-tiene-parcela p, .no-puede-solicitar p, .sin-info p {
-  margin: 8px 0;
-  font-weight: 600;
-  color: #8B4513; /* Marrón oscuro */
+  padding: 20px;
+  border-radius: 8px;
 }
 
-.ya-tiene-parcela p:first-child, .no-puede-solicitar p:first-child {
-  font-size: 1.2em;
-  font-weight: bold;
-  color: #8B4513; /* Marrón oscuro */
-}
 .ya-tiene-parcela {
   background: #d4edda;
   border: 1px solid #c3e6cb;
@@ -5468,16 +5425,33 @@ h3 {
   100% { transform: rotate(360deg); }
 }
 
+/* Estilos para MapaGrid mejorados */
 .info-validacion-artesano {
-  background: #F5F5DC; /* Marrón claro */
-  border: 2px solid #D2B48C;
-  border-radius: 10px;
-  padding: 15px;
-  margin: 10px 0;
-  box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
 }
 
+.estado-validacion.activo {
+  color: #155724;
+  font-weight: 600;
+}
 
+.estado-validacion.inactivo {
+  color: #721c24;
+  font-weight: 600;
+}
+
+.ya-tiene-parcela-info {
+  background: #d4edda;
+  color: #155724;
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-weight: 600;
+}
 
 /* Estilos para parcelas del mismo rubro */
 .parcela-celda.mismo-rubro-bloqueado {
