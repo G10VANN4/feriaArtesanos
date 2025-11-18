@@ -116,7 +116,7 @@ def seleccionar_parcela(parcela_id):
         if not parcela.habilitada:
             return jsonify({'error': 'Esta parcela no está habilitada'}), 400
 
-        # Verificar ocupada
+        # Verificar si la parcela ya está ocupada
         ocupada = db.session.query(SolicitudParcela).join(
             Solicitud
         ).filter(
@@ -131,16 +131,19 @@ def seleccionar_parcela(parcela_id):
         if parcela.rubro_id != solicitud_aprobada.rubro_id:
             return jsonify({'error': 'Rubro incompatible con tu solicitud'}), 400
 
-        # Verificar si ya tiene parcela
-        ya_tiene = db.session.query(SolicitudParcela).join(
+        # VERIFICACIÓN MODIFICADA: Permitir múltiples parcelas hasta el límite necesario
+        parcelas_ya_asignadas = db.session.query(SolicitudParcela).join(
             Solicitud
         ).filter(
             Solicitud.artesano_id == artesano.artesano_id,
             Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
-        ).first()
+        ).count()
 
-        if ya_tiene:
-            return jsonify({'error': 'Ya tienes una parcela asignada'}), 400
+        # Verificar si ya alcanzó el límite de parcelas
+        if parcelas_ya_asignadas >= solicitud_aprobada.parcelas_necesarias:
+            return jsonify({
+                'error': f'Ya has alcanzado el límite de {solicitud_aprobada.parcelas_necesarias} parcela(s) para tu solicitud'
+            }), 400
 
         # Crear asignación
         nueva = SolicitudParcela(
@@ -151,10 +154,21 @@ def seleccionar_parcela(parcela_id):
         db.session.add(nueva)
         db.session.commit()
 
+        # Verificar si ya completó todas las parcelas necesarias
+        parcelas_actuales = parcelas_ya_asignadas + 1
+        if parcelas_actuales == solicitud_aprobada.parcelas_necesarias:
+            # Cambiar estado a "Parcialmente Asignada" o "Completada"
+            estado_completado = EstadoSolicitud.query.filter_by(nombre='Parcialmente Asignada').first()
+            if estado_completado:
+                solicitud_aprobada.estado_solicitud_id = estado_completado.estado_solicitud_id
+                db.session.commit()
+
         return jsonify({
             'success': True,
-            'message': '¡Parcela seleccionada exitosamente!',
-            'solicitud_parcela_id': nueva.solicitud_parcela_id
+            'message': f'¡Parcela seleccionada exitosamente! ({parcelas_actuales}/{solicitud_aprobada.parcelas_necesarias})',
+            'solicitud_parcela_id': nueva.solicitud_parcela_id,
+            'parcelas_asignadas': parcelas_actuales,
+            'parcelas_necesarias': solicitud_aprobada.parcelas_necesarias
         }), 200
 
     except Exception as e:
@@ -170,40 +184,95 @@ def obtener_mi_parcela():
         if not artesano:
             return jsonify({'error': 'Artesano no encontrado'}), 404
 
-        estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
+        print(f"🔍 Buscando parcelas para artesano_id: {artesano.artesano_id}")
 
-        solicitud_parcela = SolicitudParcela.query.join(
-            Solicitud
-        ).filter(
+        # Buscar estados válidos - manejar caso donde no existen
+        estado_aprobada = EstadoSolicitud.query.filter_by(nombre='Aprobada').first()
+        estado_parcial = EstadoSolicitud.query.filter_by(nombre='Parcialmente Asignada').first()
+        
+        if not estado_aprobada:
+            print("❌ Estado 'Aprobada' no encontrado en la base de datos")
+            return jsonify({'error': 'Estado "Aprobada" no configurado'}), 500
+
+        # Obtener estados válidos
+        estados_validos = [estado_aprobada.estado_solicitud_id]
+        if estado_parcial:
+            estados_validos.append(estado_parcial.estado_solicitud_id)
+            print(f"✅ Estados válidos: {estados_validos}")
+
+        # Obtener solicitud activa primero
+        solicitud_activa = Solicitud.query.filter(
             Solicitud.artesano_id == artesano.artesano_id,
-            Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
+            Solicitud.estado_solicitud_id.in_(estados_validos)
         ).first()
 
-        if not solicitud_parcela:
-            return jsonify({'message': 'No tienes parcela asignada'}), 404
+        if not solicitud_activa:
+            print("ℹ️ No hay solicitud activa para este artesano")
+            return jsonify({
+                'message': 'No tienes una solicitud activa con parcelas asignadas',
+                'parcelas': [],
+                'total_parcelas_asignadas': 0,
+                'parcelas_necesarias': 0,
+                'solicitud_completada': False
+            }), 404
 
-        parcela = solicitud_parcela.parcela_rel
+        print(f"✅ Solicitud encontrada: {solicitud_activa.solicitud_id}, parcelas_necesarias: {solicitud_activa.parcelas_necesarias}")
 
-        data = parcela.to_dict()
+        # Obtener parcelas asignadas a esta solicitud
+        solicitudes_parcelas = SolicitudParcela.query.filter_by(
+            solicitud_id=solicitud_activa.solicitud_id
+        ).all()
 
-        if parcela.rubro_rel:
-            data['rubro_info'] = {
-                'tipo': parcela.rubro_rel.tipo,
-                'color': parcela.rubro_rel.color_rel.codigo_hex if parcela.rubro_rel.color_rel else '#CCCCCC'
+        print(f"📦 Encontradas {len(solicitudes_parcelas)} relaciones SolicitudParcela")
+
+        parcelas_data = []
+        for solicitud_parcela in solicitudes_parcelas:
+            parcela = Parcela.query.get(solicitud_parcela.parcela_id)
+            if not parcela:
+                print(f"⚠️ Parcela {solicitud_parcela.parcela_id} no encontrada")
+                continue
+                
+            data = {
+                'parcela_id': parcela.parcela_id,
+                'fila': parcela.fila,
+                'columna': parcela.columna,
+                'habilitada': parcela.habilitada,
+                'ocupada': True,
+                'solicitud_parcela_id': solicitud_parcela.solicitud_parcela_id
             }
 
-        data['artesano_info'] = {
-            'nombre': artesano.nombre,
-            'artesano_id': artesano.artesano_id
-        }
+            # Info del rubro
+            if parcela.rubro_id:
+                rubro = Rubro.query.get(parcela.rubro_id)
+                if rubro:
+                    color = Color.query.get(rubro.color_id) if rubro.color_id else None
+                    data['rubro_info'] = {
+                        'tipo': rubro.tipo,
+                        'color': color.codigo_hex if color else '#CCCCCC'
+                    }
+
+            parcelas_data.append(data)
+
+        print(f"✅ Procesadas {len(parcelas_data)} parcelas")
+
+        solicitud_completada = len(parcelas_data) >= solicitud_activa.parcelas_necesarias
 
         return jsonify({
-            'parcela': data,
-            'solicitud_parcela_id': solicitud_parcela.solicitud_parcela_id
+            'parcelas': parcelas_data,
+            'total_parcelas_asignadas': len(parcelas_data),
+            'parcelas_necesarias': solicitud_activa.parcelas_necesarias,
+            'solicitud_completada': solicitud_completada,
+            'artesano_info': {
+                'nombre': artesano.nombre,
+                'artesano_id': artesano.artesano_id
+            }
         }), 200
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ ERROR en obtener_mi_parcela: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Error interno del servidor al obtener parcelas'}), 500
 
 
 @parcela_bp.route('/artesano/mi-parcela/liberar', methods=['DELETE'])

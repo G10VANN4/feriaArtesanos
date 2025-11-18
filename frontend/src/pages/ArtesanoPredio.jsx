@@ -5,50 +5,227 @@ import "../styles/App.css";
 
 const ArtesanoPredio = () => {
   const [parcelasSeleccionadas, setParcelasSeleccionadas] = useState([]);
-  const [infoSolicitud, setInfoSolicitud] = useState(null);
+  const [infoValidacion, setInfoValidacion] = useState(null);
+  const [parcelasNecesarias, setParcelasNecesarias] = useState(1);
+  const [dimensiones, setDimensiones] = useState({ largo: 0, ancho: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [parcelasMapa, setParcelasMapa] = useState([]);
 
-  // Cargar información de la solicitud del artesano
-  const cargarInfoSolicitud = async () => {
+  const API_BASE_URL = "http://localhost:5000";
+
+
+  
+  const cargarInfoValidacion = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("token");
 
-      console.log("🔑 Cargando información de solicitud...");
+      console.log("Cargando información de validación para el mapa...");
 
-      const response = await fetch("/api/v1/artesano/mi-solicitud", {
+      const responseSolicitud = await fetch(`${API_BASE_URL}/solicitudes`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
 
-      console.log("📡 Respuesta:", response.status);
+      console.log("Respuesta solicitud:", responseSolicitud.status);
+
+      if (!responseSolicitud.ok) {
+        throw new Error(`Error ${responseSolicitud.status} al cargar solicitud`);
+      }
+
+      const dataSolicitud = await responseSolicitud.json();
+      console.log("Datos de solicitud recibidos:", dataSolicitud);
+      
+      if (dataSolicitud.solicitud === null) {
+        setError(dataSolicitud.msg || "No tienes una solicitud activa para este año.");
+        setInfoValidacion({
+          puede_solicitar_parcelas: false,
+          motivo: "No tienes una solicitud activa",
+          tiene_solicitud: false
+        });
+        setLoading(false);
+        return;
+      }
+
+      const solicitud = dataSolicitud.solicitud;
+      const rubroInfo = await cargarInfoRubroActual(solicitud.rubro_id);
+      const infoParcelas = await verificarParcelaAsignada();
+      const estadoInfo = await verificarEstadoSolicitud(solicitud.estado_solicitud_id);
+  
+      const puedeSolicitar = estadoInfo.aprobada && 
+                            !infoParcelas.solicitudCompletada &&
+                            infoParcelas.totalAsignadas < solicitud.parcelas_necesarias;
+      
+      let motivo = "";
+      if (!estadoInfo.aprobada) {
+        motivo = `La solicitud está  ${estadoInfo.nombre}`;
+      } else if (infoParcelas.solicitudCompletada) {
+        motivo = `Ya completaste todas las ${solicitud.parcelas_necesarias} parcelas necesarias`;
+      } else if (infoParcelas.totalAsignadas >= solicitud.parcelas_necesarias) {
+        motivo = `Ya tenes ${infoParcelas.totalAsignadas} de ${solicitud.parcelas_necesarias} parcelas asignadas`;
+      } else {
+        motivo = "Puedes seleccionar parcelas";
+      }
+
+      setInfoValidacion({
+        puede_solicitar_parcelas: puedeSolicitar,
+        motivo: motivo,
+        tiene_solicitud: true,
+        solicitud_id: solicitud.solicitud_id,
+        rubro_id: solicitud.rubro_id,
+        rubro_nombre: rubroInfo?.tipo || "Sin nombre",
+        color_rubro: rubroInfo?.color_rel?.codigo_hex || "#CCCCCC",
+        estado_solicitud: estadoInfo.nombre,
+        ya_tiene_parcela: infoParcelas.tieneParcela,
+        solicitud_completada: infoParcelas.solicitudCompletada,
+        parcelas_asignadas: infoParcelas.totalAsignadas,
+        parcelas_necesarias: solicitud.parcelas_necesarias,
+        costo_total: solicitud.costo_total,
+        info_parcelas: infoParcelas.parcelas
+      });
+
+      setDimensiones({
+        largo: solicitud.dimensiones_largo || 0,
+        ancho: solicitud.dimensiones_ancho || 0
+      });
+      setParcelasNecesarias(solicitud.parcelas_necesarias || 1);
+
+      await cargarParcelasMapa();
+      
+    } catch (error) {
+      console.error("Error en cargarInfoValidacion:", error);
+      setError(`Error de conexión: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarInfoRubroActual = async (rubroId) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/rubros`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const rubros = await response.json();
+        const rubroEncontrado = rubros.find(rubro => rubro.rubro_id === rubroId);
+        
+        if (rubroEncontrado) {
+          console.log("Rubro encontrado:", rubroEncontrado);
+          return rubroEncontrado;
+        } else {
+          console.warn("Rubro no encontrado, usando primer rubro disponible");
+          return rubros.length > 0 ? rubros[0] : null;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error cargando rubro actual:", error);
+      return null;
+    }
+  };
+
+  const verificarEstadoSolicitud = async (estadoSolicitudId) => {
+    const estados = {
+      1: { nombre: "Pendiente", aprobada: false },
+      2: { nombre: "Aprobada", aprobada: true },
+      3: { nombre: "Rechazada", aprobada: false },
+      4: { nombre: "Corrección Requerida", aprobada: false },
+      5: { nombre: "Parcialmente Asignada", aprobada: true }
+    };
+    
+    return estados[estadoSolicitudId] || { nombre: "Desconocido", aprobada: false };
+  };
+
+  const verificarParcelaAsignada = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/api/v1/artesano/mi-parcela`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        const data = await response.json();
+        console.log("Información de parcelas:", data);
+
+        return {
+          tieneParcela: data.total_parcelas_asignadas > 0,
+          totalAsignadas: data.total_parcelas_asignadas,
+          necesarias: data.parcelas_necesarias,
+          solicitudCompletada: data.solicitud_completada,
+          parcelas: data.parcelas || []
+        };
+      } else if (response.status === 404) {
+        console.log("No tiene parcelas asignadas");
+        return {
+          tieneParcela: false,
+          totalAsignadas: 0,
+          necesarias: 0,
+          solicitudCompletada: false,
+          parcelas: []
+        };
+      } else {
+        console.error("Error en mi-parcela:", response.status);
+        return {
+          tieneParcela: false,
+          totalAsignadas: 0,
+          necesarias: 0,
+          solicitudCompletada: false,
+          parcelas: []
+        };
+      }
+    } catch (error) {
+      console.error("Error verificando parcelas:", error);
+      return {
+        tieneParcela: false,
+        totalAsignadas: 0,
+        necesarias: 0,
+        solicitudCompletada: false,
+        parcelas: []
+      };
+    }
+  };
+  const cargarParcelasMapa = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/api/v1/mapa/parcelas`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
-        console.log("✅ Datos recibidos:", data);
-        setInfoSolicitud(data);
-      } else if (response.status === 404) {
-        setError(
-          "No tienes una solicitud aprobada. Completa el formulario primero."
-        );
+        setParcelasMapa(data.parcelas || []);
+        console.log("Parcelas del mapa cargadas:", data.parcelas?.length);
       } else {
-        setError("Error al cargar la información de tu solicitud");
+        throw new Error(`Error ${response.status} al cargar parcelas`);
       }
     } catch (error) {
-      console.error("Error cargando información de solicitud:", error);
-      setError("Error de conexión al cargar tu solicitud");
-    } finally {
-      setLoading(false);
+      console.error("Error cargando parcelas del mapa:", error);
+      throw error;
     }
   };
 
   // Manejar selección de parcela
   const handleParcelaSeleccionada = (parcela) => {
     if (!parcela || !parcela.parcela_id) return;
+
+    if (!esParcelaSeleccionable(parcela)) {
+      mostrarMotivoBloqueo(parcela);
+      return;
+    }
 
     const yaSeleccionada = parcelasSeleccionadas.some(
       (p) => p.parcela_id === parcela.parcela_id
@@ -59,39 +236,155 @@ const ArtesanoPredio = () => {
         prev.filter((p) => p.parcela_id !== parcela.parcela_id)
       );
     } else {
-      setParcelasSeleccionadas((prev) => [...prev, parcela]);
+      if (parcelasSeleccionadas.length < parcelasNecesarias) {
+        setParcelasSeleccionadas((prev) => [...prev, parcela]);
+      } else {
+        alert(`Solo puedes seleccionar ${parcelasNecesarias} parcela(s) para tu puesto`);
+      }
     }
   };
 
-  // Calcular costo total
-  const calcularCostoTotal = () => {
-    if (!infoSolicitud || parcelasSeleccionadas.length === 0) return 0;
-    const precioPorParcela = infoSolicitud.precio_parcela || 0;
-    return precioPorParcela * parcelasSeleccionadas.length;
+  const esParcelaSeleccionable = (parcela) => {
+    if (!infoValidacion) return false;
+    if (!infoValidacion.puede_solicitar_parcelas) return false;
+    if (infoValidacion.ya_tiene_parcela) return false;
+    if (parcela.rubro_id !== infoValidacion.rubro_id) return false;
+    if (parcela.ocupada) return false;
+    if (!parcela.habilitada) return false;
+    
+    return true;
   };
 
-  // Manejar pago
-  const handlePagar = async () => {
+  const mostrarMotivoBloqueo = (parcela) => {
+    if (!infoValidacion) {
+      alert("No hay información de validación disponible");
+      return;
+    }
+
+    if (!infoValidacion.puede_solicitar_parcelas) {
+      alert(infoValidacion.motivo);
+      return;
+    }
+
+    if (infoValidacion.ya_tiene_parcela) {
+      alert("Ya tienes una parcela asignada");
+      return;
+    }
+
+    if (parcela.rubro_id !== infoValidacion.rubro_id) {
+      alert(`Esta parcela es de otro rubro. Tu rubro es: ${infoValidacion.rubro_nombre}`);
+      return;
+    }
+
+    if (parcela.ocupada) {
+      alert("Esta parcela ya está ocupada");
+      return;
+    }
+
+    if (!parcela.habilitada) {
+      alert("Esta parcela no está habilitada");
+      return;
+    }
+  };
+
+  const calcularCostoTotal = () => {
+    if (!infoValidacion || parcelasSeleccionadas.length === 0) return 0;
+    
+    
+    if (infoValidacion.costo_total && infoValidacion.parcelas_necesarias) {
+      const costoPorParcela = infoValidacion.costo_total / infoValidacion.parcelas_necesarias;
+      return costoPorParcela * parcelasSeleccionadas.length;
+    }
+
+    return 100 * parcelasSeleccionadas.length;
+  };
+
+  const esSeleccionCorrecta = () => {
+    return parcelasSeleccionadas.length === parcelasNecesarias;
+  };
+
+  const handleConfirmarParcelas = async () => {
     if (parcelasSeleccionadas.length === 0) {
       alert("Debes seleccionar al menos una parcela");
       return;
     }
 
+    if (!esSeleccionCorrecta()) {
+      alert(`Debes seleccionar exactamente ${parcelasNecesarias} parcela(s) para tu puesto`);
+      return;
+    }
+
     try {
       setLoading(true);
-      // Aquí iría la lógica real para procesar el pago
-      console.log("Procesando pago para parcelas:", parcelasSeleccionadas);
-      alert(`Pago procesado por $${calcularCostoTotal()}`);
+      
+      const resultados = [];
+      
+      for (const parcela of parcelasSeleccionadas) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/parcelas/${parcela.parcela_id}/seleccionar`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            resultados.push({
+              parcela_id: parcela.parcela_id,
+              success: true,
+              message: data.message
+            });
+            console.log(`Parcela ${parcela.parcela_id} seleccionada correctamente`);
+          } else {
+            const errorData = await response.json();
+            resultados.push({
+              parcela_id: parcela.parcela_id,
+              success: false,
+              message: errorData.error
+            });
+            console.error(`Error en parcela ${parcela.parcela_id}:`, errorData.error);
+          }
+        } catch (error) {
+          resultados.push({
+            parcela_id: parcela.parcela_id,
+            success: false,
+            message: `Error de conexión: ${error.message}`
+          });
+        }
+      }
+
+      const exitosas = resultados.filter(r => r.success).length;
+      const fallidas = resultados.filter(r => !r.success);
+      
+      if (exitosas > 0) {
+        alert(`¡${exitosas} parcela(s) asignadas exitosamente!`);
+        
+        if (fallidas.length > 0) {
+          console.warn("Parcelas con errores:", fallidas);
+        }
+        
+        setParcelasSeleccionadas([]);
+        await cargarInfoValidacion();
+      } else {
+        alert("No se pudo asignar ninguna parcela. Verifica los errores en la consola.");
+      }
+      
     } catch (error) {
-      console.error("Error procesando pago:", error);
-      alert("Error al procesar el pago");
+      console.error("Error confirmando parcelas:", error);
+      alert(`Error al confirmar parcelas: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRecargar = async () => {
+    await cargarInfoValidacion();
+  };
+
   useEffect(() => {
-    cargarInfoSolicitud();
+    cargarInfoValidacion();
   }, []);
 
   return (
@@ -105,84 +398,172 @@ const ArtesanoPredio = () => {
             <MapaGrid
               onParcelaSeleccionada={handleParcelaSeleccionada}
               parcelasSeleccionadas={parcelasSeleccionadas}
+              infoValidacion={infoValidacion}
+              parcelasMapa={parcelasMapa}
             />
           </div>
 
           {/* Información a la derecha */}
           <div className="info-section">
             <div className="info-card">
-              <h3>Información de tu puesto</h3>
+              <div className="info-header">
+                <h3>Selección de Parcelas</h3>
+                <button 
+                  className="btn-reload"
+                  onClick={handleRecargar}
+                  disabled={loading}
+                  title="Recargar información"
+                >
+                  ↻
+                </button>
+              </div>
 
               {loading ? (
                 <div className="cargando-info">
-                  Cargando información de tu solicitud...
+                  <div className="spinner"></div>
+                  <p>Cargando información...</p>
                 </div>
               ) : error ? (
                 <div className="error-info">
-                  <p>{error}</p>
-                  <button
-                    className="btn-formulario"
-                    onClick={() => (window.location.href = "/formulario")}
+                  <div className="error-icon"></div>
+                  <p><strong>Error:</strong> {error}</p>
+                  <button 
+                    className="btn-reintentar"
+                    onClick={handleRecargar}
                   >
-                    Ir al Formulario
+                    Reintentar
                   </button>
                 </div>
-              ) : infoSolicitud ? (
+              ) : infoValidacion ? (
                 <>
-                  <div className="info-item">
-                    <label>Rubro:</label>
-                    <span>{infoSolicitud.rubro_tipo || "No especificado"}</span>
-                  </div>
-
-                  <div className="info-item">
-                    <label>Dimensiones requeridas:</label>
-                    <span>
-                      {infoSolicitud.dimensiones_largo || 0}m ×{" "}
-                      {infoSolicitud.dimensiones_ancho || 0}m
-                    </span>
-                  </div>
-
-                  <div className="info-item">
-                    <label>Parcelas seleccionadas:</label>
-                    <span>
-                      {parcelasSeleccionadas.length} de{" "}
-                      {infoSolicitud.parcelas_necesarias || 1} parcela(s)
-                    </span>
-                  </div>
-
                   <div className="info-item destacado">
-                    <label>Total a pagar:</label>
-                    <span className="costo-total">${calcularCostoTotal()}</span>
+                    <span className={`estado ${infoValidacion.puede_solicitar_parcelas ? 'activo' : 'inactivo'}`}>
+                      {infoValidacion.puede_solicitar_parcelas ? 'Puede seleccionar' : 'No puede seleccionar'}
+                    </span>
                   </div>
 
-                  <div className="instrucciones">
-                    <p>
-                      <strong>
-                        Tu puesto mide {infoSolicitud.dimensiones_largo || 0}×
-                        {infoSolicitud.dimensiones_ancho || 0}m
-                      </strong>
-                      , por lo que necesitas seleccionar{" "}
-                      {infoSolicitud.parcelas_necesarias || 1} parcela(s).
-                    </p>
-                    <p>
-                      Según tu rubro <strong>{infoSolicitud.rubro_tipo}</strong>
-                      , el valor por parcela es{" "}
-                      <strong>${infoSolicitud.precio_parcela || 0}</strong>.
-                    </p>
-                  </div>
+                  {infoValidacion.puede_solicitar_parcelas && (
+                    <>
+                      <div className="info-item">
+                        <label>Tu rubro:</label>
+                        <span className="rubro-nombre">
+                          {infoValidacion.rubro_nombre}
+                          <span 
+                            className="color-muestra"
+                            style={{ backgroundColor: infoValidacion.color_rubro }}
+                            title={infoValidacion.color_rubro}
+                          ></span>
+                        </span>
+                      </div>
 
-                  <button
-                    className="btn-pagar"
-                    onClick={handlePagar}
-                    disabled={loading || parcelasSeleccionadas.length === 0}
-                  >
-                    {loading
-                      ? "Procesando..."
-                      : `Pagar $${calcularCostoTotal()}`}
-                  </button>
+                      <div className="info-item">
+                        <label>Dimensiones del puesto:</label>
+                        <span className="dimensiones">
+                          {dimensiones.largo}m × {dimensiones.ancho}m
+                        </span>
+                      </div>
+
+                      <div className="info-item">
+                        <label>Parcelas necesarias:</label>
+                        <span className="parcelas-necesarias">
+                          {parcelasNecesarias} parcela(s)
+                        </span>
+                      </div>
+
+                      <div className="info-item">
+                        <label>Costo total de tu puesto:</label>
+                        <span className="costo-total-puesto">${infoValidacion.costo_total || 0}</span>
+                      </div>
+
+                      <div className="info-item">
+                        <label>Parcelas seleccionadas:</label>
+                        <span className={`seleccion-actual ${esSeleccionCorrecta() ? 'correcto' : 'advertencia'}`}>
+                          {parcelasSeleccionadas.length} de {parcelasNecesarias}
+                          {!esSeleccionCorrecta() && <span className="icono-advertencia"> </span>}
+                          {esSeleccionCorrecta() && <span className="icono-correcto"> </span>}
+                        </span>
+                      </div>
+
+                      <div className="info-item total">
+                        <label>Costo a pagar ahora:</label>
+                        <span className="costo-actual">${calcularCostoTotal()}</span>
+                      </div>
+
+                      {parcelasSeleccionadas.length > 0 && (
+                        <div className="parcelas-lista">
+                          <label>Parcelas seleccionadas:</label>
+                          <div className="lista-parcelas">
+                            {parcelasSeleccionadas.map(parcela => (
+                              <div key={parcela.parcela_id} className="parcela-item">
+                                Fila {parcela.fila}, Columna {parcela.columna}
+                                {parcela.rubro_info && (
+                                  <span className="rubro-parcela"> - {parcela.rubro_info.tipo}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="instrucciones">
+                        <h4>Instrucciones:</h4>
+                        <ul>
+                          <li>Solo puedes seleccionar parcelas de tu rubro: <strong>{infoValidacion.rubro_nombre}</strong></li>
+                          <li>Las parcelas deben estar <strong>disponibles</strong> (no ocupadas)</li>
+                          <li>Selecciona exactamente <strong>{parcelasNecesarias} parcela(s)</strong></li>
+                          <li>Clickee en una parcela para seleccionarla/deseleccionarla</li>
+                        </ul>
+                      </div>
+
+                      <div className="acciones">
+                        <button
+                          className="btn-confirmar"
+                          onClick={handleConfirmarParcelas}
+                          disabled={loading || !esSeleccionCorrecta()}
+                        >
+                          {loading ? (
+                            <>
+                              <div className="spinner-btn"></div>
+                              Procesando...
+                            </>
+                          ) : (
+                            `Confirmar ${parcelasSeleccionadas.length} Parcela(s) - $${calcularCostoTotal()}`
+                          )}
+                        </button>
+
+                        {!esSeleccionCorrecta() && (
+                          <div className="mensaje-advertencia">
+                            Selecciona {parcelasNecesarias} parcela(s) para continuar
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {infoValidacion.ya_tiene_parcela && (
+                    <div className="ya-tiene-parcela">
+                      <p><strong>Ya tenes parcelas asignadas</strong></p>
+                      <p>No podes seleccionar nuevas parcelas porque ya tenes asignadas.</p>
+                    </div>
+                  )}
+
+                  {!infoValidacion.puede_solicitar_parcelas && !infoValidacion.ya_tiene_parcela && (
+                    <div className="no-puede-solicitar">
+                      <p><strong>No podes solicitar parcelas en este momento</strong></p>
+                      <p>{infoValidacion.motivo}</p>
+                    </div>
+                  )}
                 </>
               ) : (
-                <div className="sin-info">No se pudo cargar la información</div>
+                <div className="sin-info">
+                  <p>No se pudo cargar la información de validación</p>
+                  <button 
+                    className="btn-reintentar"
+                    onClick={handleRecargar}
+                  >
+                    Reintentar
+                  </button>
+                </div>
               )}
             </div>
           </div>

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from models.solicitud_parcela import SolicitudParcela
 from models.base import db
 from models.solicitud import Solicitud
 from models.artesano import Artesano
@@ -685,3 +686,59 @@ def obtener_fotos_completas_solicitud(solicitud_id):
         
     except Exception as e:
         return jsonify({'msg': 'Error al obtener fotos', 'error': str(e)}), 500
+
+@solicitud_bp.route('/artesano/rubro-actual', methods=['GET'])
+@jwt_required()
+def obtener_rubro_solicitud_actual():
+    """Obtener SOLO el rubro_id de la solicitud activa para habilitar/deshabilitar clics en el mapa"""
+    try:
+        usuario = get_usuario_actual()
+        if not usuario:
+            return jsonify({'msg': 'Usuario no encontrado'}), 404
+        
+        artesano = Artesano.query.filter_by(usuario_id=usuario.usuario_id).first()
+        if not artesano:
+            return jsonify({'msg': 'Perfil de artesano no encontrado'}), 404
+        
+        # Buscar solicitud activa del año actual
+        año_actual = datetime.now().year
+        solicitud = (
+            Solicitud.query
+            .filter(Solicitud.artesano_id == artesano.artesano_id)
+            .filter(db.extract('year', Solicitud.fecha_solicitud) == año_actual)
+            .first()
+        )
+        
+        if not solicitud:
+            return jsonify({
+                'tiene_solicitud': False,
+                'msg': 'No tiene solicitud activa para el año actual'
+            }), 200
+        
+        # Verificar que esté en estado APROBADA
+        estado = EstadoSolicitud.query.get(solicitud.estado_solicitud_id)
+        if estado.nombre != 'Aprobada':
+            return jsonify({
+                'tiene_solicitud': True,
+                'solicitud_aprobada': False,
+                'estado_actual': estado.nombre,
+                'msg': f'La solicitud no está aprobada (estado: {estado.nombre})'
+            }), 200
+        
+        # Verificar si ya tiene parcela asignada
+        parcela_asignada = SolicitudParcela.query.filter_by(
+            solicitud_id=solicitud.solicitud_id
+        ).first()
+        
+        return jsonify({
+            'tiene_solicitud': True,
+            'solicitud_aprobada': True,
+            'solicitud_id': solicitud.solicitud_id,
+            'rubro_id': solicitud.rubro_id,
+            'ya_tiene_parcela': parcela_asignada is not None,
+            'parcela_asignada_id': parcela_asignada.parcela_id if parcela_asignada else None
+        }), 200
+        
+    except Exception as e:
+        print("ERROR EN obtener_rubro_solicitud_actual():", str(e))
+        return jsonify({'msg': 'Error interno al obtener rubro', 'error': str(e)}), 500
