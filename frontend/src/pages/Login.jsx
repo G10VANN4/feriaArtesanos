@@ -29,7 +29,7 @@ const Login = () => {
         localStorage.setItem('access_token', result.token);
         localStorage.setItem('user_role', result.role || 'admin');
         
-        // ✅ REDIRECCIÓN SEGÚN ROL
+        // REDIRECCIÓN SEGÚN ROL
         if (result.rol_id === 2) { // Administrador
           navigate("/dashboard", { replace: true });
         } else if (result.rol_id === 3) { // Organizador

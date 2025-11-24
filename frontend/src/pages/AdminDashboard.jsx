@@ -37,17 +37,12 @@ const ESTADOS = {
   Pendiente: { badge: "bg-yellow-500", icon: <FiClock /> },
   Rechazada: { badge: "bg-red-500", icon: <FiXCircle /> },
   Cancelada: { badge: "bg-gray-500", icon: <FiTrash2 /> },
-  "Pendiente por Modificación": {
-    badge: "bg-orange-500",
-    icon: <FiAlertTriangle />,
-  },
 };
 
 const ESTADOS_ADMIN = [
   "Aprobada",
   "Pendiente",
   "Rechazada",
-  "Pendiente por Modificación",
 ];
 
 const Dashboard = () => {

@@ -30,7 +30,7 @@ system_bp = Blueprint('system_bp', __name__)
 @system_bp.route('/')
 def home():
     return jsonify({
-        'message': '✅ Sistema de Ferias con MySQL',
+        'message': 'Sistema de Ferias con MySQL',
         'status': 'active',
         'database': 'MySQL',
         'endpoints': {
@@ -47,14 +47,14 @@ def test_connection():
         db.engine.connect()
         return jsonify({
             'success': True,
-            'message': '✅ Conexión a MySQL exitosa',
+            'message': 'Conexión a MySQL exitosa',
             'database': 'sistema_ferias'
         }), 200
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e),
-            'message': '❌ Error de conexión. Revisa la configuración.'
+            'message': 'Error de conexión. Revisa la configuración.'
         }), 500
 
 @system_bp.route('/api/init-db')
@@ -62,7 +62,7 @@ def init_db():
     """Crear todas las tablas y datos iniciales automáticamente"""
     try:
         db.create_all()
-        print("✅ Tablas creadas exitosamente en MySQL")
+        print("Tablas creadas exitosamente en MySQL")
         datos_insertados = False
 
         # PRIMERO insertar datos básicos
@@ -72,7 +72,7 @@ def init_db():
             roles = [Rol(tipo=t, es_activo=True) for t in ['Artesano', 'Administrador', 'Organizador']]
             db.session.add_all(roles)
             db.session.flush()
-            print("✅ Roles insertados")
+            print("Roles insertados")
             datos_insertados = True
 
         # 2. Estados de usuario 
@@ -80,7 +80,7 @@ def init_db():
             estados = [EstadoUsuario(tipo=t, es_activo=True) for t in ['Activo', 'Inactivo']]
             db.session.add_all(estados)
             db.session.flush()
-            print("✅ Estados de usuario insertados")
+            print("Estados de usuario insertados")
             datos_insertados = True
 
         # 3. Colores (necesarios para Rubro)
@@ -92,7 +92,7 @@ def init_db():
             ]
             db.session.add_all(colores)
             db.session.flush()
-            print("✅ Colores insertados")
+            print("Colores insertados")
             datos_insertados = True
 
         # 4. Estados de Solicitud ( para RF5)
@@ -102,11 +102,10 @@ def init_db():
                 EstadoSolicitud(nombre='Aprobada', es_activo=True),
                 EstadoSolicitud(nombre='Rechazada', es_activo=True),
                 EstadoSolicitud(nombre='Cancelada', es_activo=True),
-                EstadoSolicitud(nombre='Pendiente por modificación', es_activo=True)
             ]
             db.session.add_all(estados_solicitud)
             db.session.flush()
-            print("✅ Estados de solicitud insertados")
+            print("Estados de solicitud insertados")
             datos_insertados = True
 
         # 5. Estados de Pago (para RF24)
@@ -119,7 +118,7 @@ def init_db():
             ]
             db.session.add_all(estados_pago)
             db.session.flush()
-            print("✅ Estados de pago insertados")
+            print("Estados de pago insertados")
             datos_insertados = True
 
         # 6. Estados de Notificación
@@ -131,7 +130,7 @@ def init_db():
             ]
             db.session.add_all(estados_notificacion)
             db.session.flush()
-            print("✅ Estados de notificación insertados")
+            print("Estados de notificación insertados")
             datos_insertados = True
 
         # 7. insertar Rubros 
@@ -154,11 +153,8 @@ def init_db():
             tipo_basico = Tipo_parcela(tipo='Básica', es_activo=True)
             db.session.add(tipo_basico)
             db.session.flush()  # Esto es importante para obtener el ID
-            print("✅ Tipo de parcela básica creado")
+            print("Tipo de parcela básica creado")
             datos_insertados = True
-
-    
-
 
         
         # Obtener IDs necesarios
@@ -179,14 +175,14 @@ def init_db():
             db.session.add(org_user)
             db.session.flush()
             
-            print("✅ Usuario Organizador creado: organizador@feria.com / org123")
+            print("Usuario Organizador creado: organizador@feria.com / org123")
             admin_creado = True
 
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': '✅ Base de datos inicializada completamente',
+            'message': 'Base de datos inicializada completamente',
             'datos_insertados': datos_insertados,
             'credenciales_organizador': {
                 'email': 'organizador@feria.com',

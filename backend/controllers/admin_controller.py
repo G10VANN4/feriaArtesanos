@@ -147,8 +147,13 @@ class AdminController:
             )
             query = query.join(Solicitud.estado_rel).join(Solicitud.rubro_rel).join(Solicitud.artesano_rel)
 
+            # Filtrar estados válidos (excluyendo Pendiente por Modificación)
             if filtro_estado and filtro_estado != 'all':
-                query = query.filter(EstadoSolicitud.nombre == filtro_estado)
+                if filtro_estado == 'Pendiente':
+                    # Solo mostrar Pendiente, no Pendiente por Modificación
+                    query = query.filter(EstadoSolicitud.nombre == 'Pendiente')
+                else:
+                    query = query.filter(EstadoSolicitud.nombre == filtro_estado)
 
             if busqueda_termino:
                 term = f"%{busqueda_termino.lower()}%"
@@ -157,9 +162,11 @@ class AdminController:
                     db.func.lower(Artesano.nombre).like(term), 
                     db.func.lower(Rubro.tipo).like(term)      
                 ))
+                
+            query = query.filter(EstadoSolicitud.nombre != 'Pendiente por Modificación')
 
             solicitudes = query.order_by(Solicitud.fecha_solicitud.desc()).all()
-            
+
             data = []
             for s in solicitudes: 
                 artesano = s.artesano_rel
@@ -490,7 +497,6 @@ class AdminController:
             
             resultado = []
             for rubro in rubros_activos:
-                # Contar por estado para ESTE rubro específico
                 total_solicitudes = db.session.query(func.count(Solicitud.solicitud_id)).filter(
                     Solicitud.rubro_id == rubro.rubro_id
                 ).scalar() or 0
@@ -501,20 +507,15 @@ class AdminController:
                     Solicitud.estado_solicitud_id == estado_aprobada.estado_solicitud_id
                 ).scalar() or 0
                 
-                estados_pendientes = EstadoSolicitud.query.filter(
-                    EstadoSolicitud.nombre.in_(['Pendiente', 'Pendiente por Modificación'])
-                ).all()
-                estados_pendientes_ids = [e.estado_solicitud_id for e in estados_pendientes]
+                estado_pendiente = EstadoSolicitud.query.filter_by(nombre='Pendiente').first()
                 
                 pendientes = db.session.query(func.count(Solicitud.solicitud_id)).filter(
                     Solicitud.rubro_id == rubro.rubro_id,
-                    Solicitud.estado_solicitud_id.in_(estados_pendientes_ids)
+                    Solicitud.estado_solicitud_id == estado_pendiente.estado_solicitud_id
                 ).scalar() or 0
                 
-                # Obtener límite activo
                 limite_activo, _ = AdminController.get_limite_activo_rubro(rubro.rubro_id)
                 
-                # Calcular disponibilidad
                 limite_alcanzado = False
                 disponibilidad = "Sin límite"
                 
