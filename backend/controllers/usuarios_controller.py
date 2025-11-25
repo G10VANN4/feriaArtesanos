@@ -237,20 +237,36 @@ def eliminar_usuario(usuario_id):
         if not usuario:
             return jsonify({'error': 'Usuario no encontrado'}), 404
         
-        # Primero eliminar los registros relacionados
-        if usuario.rol_id == 2:  # Administrador
+        administrador_id = None
+        if usuario.rol_id == 2:  
+            admin = Administrador.query.filter_by(usuario_id=usuario_id).first()
+            if admin:
+                administrador_id = admin.administrador_id
+                
+                from models.solicitud import Solicitud
+                solicitudes_count = Solicitud.query.filter_by(administrador_id=administrador_id).count()
+                print(f"El administrador tiene {solicitudes_count} solicitud(es) que mantendrán la referencia")
+        
+        if usuario.rol_id == 2:
             admin = Administrador.query.filter_by(usuario_id=usuario_id).first()
             if admin:
                 db.session.delete(admin)
-        elif usuario.rol_id == 3:  # Organizador
+        elif usuario.rol_id == 3:
             org = Organizador.query.filter_by(usuario_id=usuario_id).first()
             if org:
                 db.session.delete(org)
-        # Finalmente eliminar el usuario
+        
         db.session.delete(usuario)
         db.session.commit()
         
-        return jsonify({'message': 'Usuario eliminado exitosamente'}), 200
+        if administrador_id:
+            from models.solicitud import Solicitud
+            solicitudes_actualizadas = Solicitud.query.filter_by(administrador_id=administrador_id).all()
+        
+        return jsonify({
+            'message': 'Usuario eliminado exitosamente',
+            'detalle': 'Las solicitudes relacionadas mantienen su información pero sin administrador asignado'
+        }), 200
         
     except Exception as e:
         db.session.rollback()

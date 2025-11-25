@@ -7,7 +7,7 @@ class Organizador(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('Usuario.usuario_id'), nullable=False, unique=True)
     nombre = db.Column(db.String(20), nullable=False)
     fecha_creacion = db.Column(db.DateTime, default=db.func.current_timestamp())
-    creado_por = db.Column(db.Integer, db.ForeignKey('Usuario.usuario_id'))
+    creado_por = db.Column(db.Integer, db.ForeignKey('Usuario.usuario_id', ondelete='SET NULL'))
     activo = db.Column(db.Boolean, default=True)
     
     def to_dict(self):

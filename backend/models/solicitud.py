@@ -2,13 +2,14 @@ from .base import db
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
+# En models/solicitud.py, cambia nullable=False a nullable=True
 class Solicitud(db.Model):
     __tablename__ = 'Solicitud'
     
     solicitud_id = db.Column(db.Integer, primary_key=True)
     artesano_id = db.Column(db.Integer, db.ForeignKey('Artesano.artesano_id'), nullable=False)
     estado_solicitud_id = db.Column(db.Integer, db.ForeignKey('EstadoSolicitud.estado_solicitud_id'), nullable=False)
-    administrador_id = db.Column(db.Integer, db.ForeignKey('Administrador.administrador_id'))
+    administrador_id = db.Column(db.Integer, db.ForeignKey('Administrador.administrador_id', ondelete='SET NULL'), nullable=True)
     descripcion = db.Column(db.Text)
     dimensiones_ancho = db.Column(db.Numeric(8, 2), default=3.00)
     dimensiones_largo = db.Column(db.Numeric(8, 2), default=3.00)
@@ -24,6 +25,7 @@ class Solicitud(db.Model):
     rubro_rel = relationship("Rubro", backref="solicitudes_por_rubro")
     estado_rel = relationship("EstadoSolicitud", backref="solicitudes_en_estado")
     fotos_rel = relationship("SolicitudFoto", backref="solicitud", cascade="all, delete-orphan")
+    administrador_rel = relationship("Administrador", backref="solicitudes_gestionadas")
 
     def to_dict(self):
         return {
