@@ -199,10 +199,12 @@ const Navbar = () => {
 
         {isAuthenticated && user?.rol_id === 1 && (
           <>
-            {/* Enlace al historial siempre visible para artesanos */}
-            <Link to="/historial-solicitudes" className="btn-historial">
-              Historial
-            </Link>
+            {/* Historial visible solo cuando también aparece Mi Perfil */}
+            {tieneSolicitud && (
+              <Link to="/historial-solicitudes" className="btn-historial">
+                Historial
+              </Link>
+            )}
 
             {/* Mostrar Mi Perfil o Formulario según tenga solicitud activa */}
             {location.pathname === "/" &&
@@ -211,6 +213,7 @@ const Navbar = () => {
                 <Link to="/mi-perfil" className="btn-formulario">
                   Mi Perfil
                 </Link>
+                
               ) : (
                 <Link to="/formulario" className="btn-formulario">
                   Formulario

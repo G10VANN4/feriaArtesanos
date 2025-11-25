@@ -329,7 +329,7 @@ const MapaGrid = ({
       if (response.ok) {
         // Si estamos usando parcelas del padre, recargar desde el padre
         if (parcelasMapa && parcelasMapa.length > 0) {
-          console.log("Recargando parcelas desde el componente padre...");
+          console.log("");
           // Forzar recarga llamando a cargarParcelas que detectará parcelasMapa
           await cargarParcelas();
         } else {
