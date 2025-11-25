@@ -363,7 +363,7 @@ const MapaGrid = ({
       if (response.ok) {
         // Si estamos usando parcelas del padre, recargar desde el padre
         if (parcelasMapa && parcelasMapa.length > 0) {
-          console.log("Recargando parcelas desde el componente padre...");
+          console.log("");
           // Forzar recarga llamando a cargarParcelas que detectará parcelasMapa
           await cargarParcelas();
         } else {
@@ -413,7 +413,7 @@ const MapaGrid = ({
       
       // Si estamos usando parcelas del padre, recargar desde el padre
       if (parcelasMapa && parcelasMapa.length > 0) {
-        console.log("🔄 Recargando parcelas desde el componente padre...");
+        console.log("");
         await cargarParcelas();
       } else {
         await cargarParcelas();
@@ -464,7 +464,7 @@ const MapaGrid = ({
       console.log("No hay parcelas del padre, cargando desde backend...");
       cargarParcelas();
     } else {
-      console.log("apa inicializado con parcelas del componente padre");
+      console.log("");
     }
 
     // Cargar rubros solo si es admin
@@ -545,7 +545,7 @@ const MapaGrid = ({
         <h2>
           {esAdmin ? "Panel de Administración - Mapa" : "Selecciona tu parcela"}
           ({totalFilas}x{totalColumnas})
-          {parcelasMapa && parcelasMapa.length > 0 && " [Desde componente padre]"}
+          {parcelasMapa && parcelasMapa.length > 0 && ""}
         </h2>
         <button
           className="btn-actualizar"
@@ -673,7 +673,7 @@ const MapaGrid = ({
               "Información de artesanos"
             }</p>
             {parcelasMapa && parcelasMapa.length > 0 && (
-              <p><strong>Fuente:</strong> Componente padre ({parcelasMapa.length} parcelas)</p>
+              <p><strong></strong>  ({parcelasMapa.length} parcelas)</p>
             )}
           </div>
         </div>
