@@ -1,4 +1,3 @@
-
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -6,6 +5,8 @@ import os
 from flask_jwt_extended import JWTManager
 from config import Config
 from models.base import db
+
+load_dotenv()
 
 # Importar controllers como blueprints
 from controllers.auth_controller import auth_bp
@@ -18,8 +19,7 @@ from controllers.usuarios_controller import usuarios_bp
 from controllers.notification_controller import notification_bp
 from controllers.mapa_controller import parcela_bp
 from controllers.organizador_controller import organizador_bp
-
-load_dotenv()
+from controllers.pago_controller import pago_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -41,6 +41,7 @@ app.register_blueprint(usuarios_bp, url_prefix='/api/usuarios')
 app.register_blueprint(notification_bp)
 app.register_blueprint(parcela_bp)
 app.register_blueprint(organizador_bp, url_prefix="/api")
+app.register_blueprint(pago_bp)
 
 if __name__ == '__main__':
     print("=" * 70)
@@ -52,5 +53,18 @@ if __name__ == '__main__':
     print("http://localhost:5000/api/status")
     print("http://localhost:5000/api/test-connection")
     print("http://localhost:5000/api/v1/mapa/parcelas")
+
+    # 🔍 DEBUG: Mostrar TODAS las rutas de pago
+    print("\n🔍 RUTAS DE PAGO REGISTRADAS:")
+    with app.app_context():
+        for rule in app.url_map.iter_rules():
+            if 'pago' in str(rule):
+                print(f"📍 {rule.rule} - Métodos: {list(rule.methods)}")
+    
+    # 🔍 DEBUG: Verificar blueprint de pago específicamente
+    print(f"\n🔍 BLUEPRINT PAGO: {pago_bp}")
+    print(f"🔍 Prefijo: /api/v1/pago")
+    print(f"🔍 Nombre: {pago_bp.name}")
+
     print("=" * 70)
     app.run(debug=True, port=5000)

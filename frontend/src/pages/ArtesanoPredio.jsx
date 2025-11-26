@@ -11,11 +11,144 @@ const ArtesanoPredio = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [parcelasMapa, setParcelasMapa] = useState([]);
+  const [procesandoPago, setProcesandoPago] = useState(false);
 
   const API_BASE_URL = "http://localhost:5000";
 
+  const iniciarPago = async () => {
+    console.log("🔍 DEBUG - Estado actual:");
+    console.log(" - infoValidacion:", infoValidacion);
+    console.log(" - parcelasSeleccionadas:", parcelasSeleccionadas.length);
+    console.log(" - esSeleccionCorrecta:", esSeleccionCorrecta());
+    console.log(
+      " - puede_solicitar_parcelas:",
+      infoValidacion?.puede_solicitar_parcelas
+    );
+    setProcesandoPago(true);
+    try {
+      // ✅ VERIFICAR ANTES DE PAGAR
+      if (!infoValidacion?.puede_solicitar_parcelas) {
+        alert(
+          infoValidacion?.motivo ||
+            "No puedes solicitar parcelas en este momento"
+        );
+        return;
+      }
 
-  
+      if (parcelasSeleccionadas.length === 0) {
+        alert("Debes seleccionar al menos una parcela antes de pagar");
+        return;
+      }
+
+      if (!esSeleccionCorrecta()) {
+        alert(`Debes seleccionar exactamente ${parcelasNecesarias} parcela(s)`);
+        return;
+      }
+
+      console.log("🔄 Iniciando proceso de pago...");
+      console.log("📦 Parcelas a enviar:", parcelasSeleccionadas);
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/pago/crear-preferencia`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          parcelas_seleccionadas: parcelasSeleccionadas,
+        }),
+      });
+
+      console.log("📡 Response status:", res.status);
+      console.log("📡 Response ok:", res.ok);
+
+      // OBTENER LA RESPUESTA COMPLETA SIN IMPORTAR EL STATUS
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch (jsonError) {
+        console.error("❌ Error parseando JSON:", jsonError);
+        throw new Error("Respuesta inválida del servidor");
+      }
+
+      console.log("📡 Response data COMPLETA:", responseData);
+
+      if (!res.ok) {
+        console.error("❌ Error del backend:", responseData);
+        if (
+          responseData.error &&
+          responseData.error.includes("Ya tenés un pago generado")
+        ) {
+          const cancelar = confirm(
+            `Ya tienes un pago en estado: ${
+              responseData.estado_actual || "pendiente"
+            }. ¿Quieres cancelarlo automáticamente y crear uno nuevo?`
+          );
+
+          if (cancelar) {
+            await cancelarPagoExistente();
+            // Reintentar el pago después de cancelar
+            iniciarPago();
+            return;
+          } else {
+            return; // Usuario no quiere cancelar
+          }
+        }
+
+        throw new Error(responseData.error || `Error ${res.status}`);
+      }
+
+      console.log("✅ Preferencia creada:", responseData);
+
+      // Redirigir a MercadoPago
+      if (responseData.init_point) {
+        window.location.href = responseData.init_point;
+      } else {
+        alert("No se pudo obtener el link de pago");
+      }
+    } catch (err) {
+      console.error("❌ Error en pago:", err);
+      alert("Error iniciando pago: " + err.message);
+    } finally {
+      setProcesandoPago(false);
+    }
+  };
+
+  const cancelarPagoExistente = async () => {
+    try {
+      setProcesandoPago(true);
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/pago/cancelar-pago-actual`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const responseData = await res.json();
+
+      if (res.ok) {
+        alert(
+          "✅ Pago anterior cancelado exitosamente. Ahora puedes crear un nuevo pago."
+        );
+        console.log("Pago cancelado:", responseData);
+
+        // Recargar la información para actualizar el estado
+        await cargarInfoValidacion();
+      } else {
+        alert("❌ Error cancelando pago: " + responseData.error);
+      }
+    } catch (err) {
+      console.error("❌ Error:", err);
+      alert("Error: " + err.message);
+    } finally {
+      setProcesandoPago(false);
+    }
+  };
+
   const cargarInfoValidacion = async () => {
     try {
       setLoading(true);
@@ -34,32 +167,61 @@ const ArtesanoPredio = () => {
       console.log("Respuesta solicitud:", responseSolicitud.status);
 
       if (!responseSolicitud.ok) {
-        throw new Error(`Error ${responseSolicitud.status} al cargar solicitud`);
+        throw new Error(
+          `Error ${responseSolicitud.status} al cargar solicitud`
+        );
       }
 
       const dataSolicitud = await responseSolicitud.json();
       console.log("Datos de solicitud recibidos:", dataSolicitud);
-      
+
       if (dataSolicitud.solicitud === null) {
-        setError(dataSolicitud.msg || "No tienes una solicitud activa para este año.");
+        setError(
+          dataSolicitud.msg || "No tienes una solicitud activa para este año."
+        );
         setInfoValidacion({
           puede_solicitar_parcelas: false,
           motivo: "No tienes una solicitud activa",
-          tiene_solicitud: false
+          tiene_solicitud: false,
+          pago_aprobado: false,
         });
         setLoading(false);
         return;
       }
 
+      // Obtener estado del pago
+      const resPago = await fetch(`${API_BASE_URL}/api/v1/pago/estado`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      let pagoEstado = null;
+      let pagoPendiente = false;
+
+      if (resPago.ok) {
+        pagoEstado = await resPago.json(); // <-- AQUÍ guardamos los datos reales
+        console.log("Estado del pago:", pagoEstado);
+        pagoPendiente = pagoEstado.estado_id === 1;
+      } else {
+        console.warn("No se pudo obtener el estado del pago");
+      }
+
+      // Pago aprobado si estado_id === 2
+      const pagoAprobado = pagoEstado?.estado_id === 2;
+
       const solicitud = dataSolicitud.solicitud;
       const rubroInfo = await cargarInfoRubroActual(solicitud.rubro_id);
       const infoParcelas = await verificarParcelaAsignada();
-      const estadoInfo = await verificarEstadoSolicitud(solicitud.estado_solicitud_id);
-  
-      const puedeSolicitar = estadoInfo.aprobada && 
-                            !infoParcelas.solicitudCompletada &&
-                            infoParcelas.totalAsignadas < solicitud.parcelas_necesarias;
-      
+      const estadoInfo = await verificarEstadoSolicitud(
+        solicitud.estado_solicitud_id
+      );
+
+      const puedeSolicitar =
+        estadoInfo.aprobada &&
+        !infoParcelas.solicitudCompletada &&
+        infoParcelas.totalAsignadas < solicitud.parcelas_necesarias;
+
       let motivo = "";
       if (!estadoInfo.aprobada) {
         motivo = `La solicitud está  ${estadoInfo.nombre}`;
@@ -72,9 +234,13 @@ const ArtesanoPredio = () => {
       }
 
       setInfoValidacion({
-        puede_solicitar_parcelas: puedeSolicitar,
-        motivo: motivo,
+        puede_solicitar_parcelas: puedeSolicitar && !pagoPendiente,
+        motivo: pagoPendiente
+          ? "Tienes un pago pendiente. Cancélalo para crear uno nuevo."
+          : motivo,
         tiene_solicitud: true,
+        pago_pendiente: pagoPendiente,
+        pago_estado: pagoEstado,
         solicitud_id: solicitud.solicitud_id,
         rubro_id: solicitud.rubro_id,
         rubro_nombre: rubroInfo?.tipo || "Sin nombre",
@@ -85,17 +251,16 @@ const ArtesanoPredio = () => {
         parcelas_asignadas: infoParcelas.totalAsignadas,
         parcelas_necesarias: solicitud.parcelas_necesarias,
         costo_total: solicitud.costo_total,
-        info_parcelas: infoParcelas.parcelas
+        info_parcelas: infoParcelas.parcelas,
       });
 
       setDimensiones({
         largo: solicitud.dimensiones_largo || 0,
-        ancho: solicitud.dimensiones_ancho || 0
+        ancho: solicitud.dimensiones_ancho || 0,
       });
       setParcelasNecesarias(solicitud.parcelas_necesarias || 1);
 
       await cargarParcelasMapa();
-      
     } catch (error) {
       console.error("Error en cargarInfoValidacion:", error);
       setError(`Error de conexión: ${error.message}`);
@@ -116,8 +281,10 @@ const ArtesanoPredio = () => {
 
       if (response.ok) {
         const rubros = await response.json();
-        const rubroEncontrado = rubros.find(rubro => rubro.rubro_id === rubroId);
-        
+        const rubroEncontrado = rubros.find(
+          (rubro) => rubro.rubro_id === rubroId
+        );
+
         if (rubroEncontrado) {
           console.log("Rubro encontrado:", rubroEncontrado);
           return rubroEncontrado;
@@ -126,7 +293,7 @@ const ArtesanoPredio = () => {
           return rubros.length > 0 ? rubros[0] : null;
         }
       }
-      
+
       return null;
     } catch (error) {
       console.error("Error cargando rubro actual:", error);
@@ -140,20 +307,25 @@ const ArtesanoPredio = () => {
       2: { nombre: "Aprobada", aprobada: true },
       3: { nombre: "Rechazada", aprobada: false },
       4: { nombre: "Corrección Requerida", aprobada: false },
-      5: { nombre: "Parcialmente Asignada", aprobada: true }
+      5: { nombre: "Parcialmente Asignada", aprobada: true },
     };
-    
-    return estados[estadoSolicitudId] || { nombre: "Desconocido", aprobada: false };
+
+    return (
+      estados[estadoSolicitudId] || { nombre: "Desconocido", aprobada: false }
+    );
   };
 
   const verificarParcelaAsignada = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/v1/artesano/mi-parcela`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/artesano/mi-parcela`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.status === 200) {
         const data = await response.json();
@@ -164,7 +336,7 @@ const ArtesanoPredio = () => {
           totalAsignadas: data.total_parcelas_asignadas,
           necesarias: data.parcelas_necesarias,
           solicitudCompletada: data.solicitud_completada,
-          parcelas: data.parcelas || []
+          parcelas: data.parcelas || [],
         };
       } else if (response.status === 404) {
         console.log("No tiene parcelas asignadas");
@@ -173,7 +345,7 @@ const ArtesanoPredio = () => {
           totalAsignadas: 0,
           necesarias: 0,
           solicitudCompletada: false,
-          parcelas: []
+          parcelas: [],
         };
       } else {
         console.error("Error en mi-parcela:", response.status);
@@ -182,7 +354,7 @@ const ArtesanoPredio = () => {
           totalAsignadas: 0,
           necesarias: 0,
           solicitudCompletada: false,
-          parcelas: []
+          parcelas: [],
         };
       }
     } catch (error) {
@@ -192,7 +364,7 @@ const ArtesanoPredio = () => {
         totalAsignadas: 0,
         necesarias: 0,
         solicitudCompletada: false,
-        parcelas: []
+        parcelas: [],
       };
     }
   };
@@ -239,7 +411,9 @@ const ArtesanoPredio = () => {
       if (parcelasSeleccionadas.length < parcelasNecesarias) {
         setParcelasSeleccionadas((prev) => [...prev, parcela]);
       } else {
-        alert(`Solo puedes seleccionar ${parcelasNecesarias} parcela(s) para tu puesto`);
+        alert(
+          `Solo puedes seleccionar ${parcelasNecesarias} parcela(s) para tu puesto`
+        );
       }
     }
   };
@@ -251,7 +425,7 @@ const ArtesanoPredio = () => {
     if (parcela.rubro_id !== infoValidacion.rubro_id) return false;
     if (parcela.ocupada) return false;
     if (!parcela.habilitada) return false;
-    
+
     return true;
   };
 
@@ -272,7 +446,9 @@ const ArtesanoPredio = () => {
     }
 
     if (parcela.rubro_id !== infoValidacion.rubro_id) {
-      alert(`Esta parcela es de otro rubro. Tu rubro es: ${infoValidacion.rubro_nombre}`);
+      alert(
+        `Esta parcela es de otro rubro. Tu rubro es: ${infoValidacion.rubro_nombre}`
+      );
       return;
     }
 
@@ -289,10 +465,10 @@ const ArtesanoPredio = () => {
 
   const calcularCostoTotal = () => {
     if (!infoValidacion || parcelasSeleccionadas.length === 0) return 0;
-    
-    
+
     if (infoValidacion.costo_total && infoValidacion.parcelas_necesarias) {
-      const costoPorParcela = infoValidacion.costo_total / infoValidacion.parcelas_necesarias;
+      const costoPorParcela =
+        infoValidacion.costo_total / infoValidacion.parcelas_necesarias;
       return costoPorParcela * parcelasSeleccionadas.length;
     }
 
@@ -310,67 +486,78 @@ const ArtesanoPredio = () => {
     }
 
     if (!esSeleccionCorrecta()) {
-      alert(`Debes seleccionar exactamente ${parcelasNecesarias} parcela(s) para tu puesto`);
+      alert(
+        `Debes seleccionar exactamente ${parcelasNecesarias} parcela(s) para tu puesto`
+      );
       return;
     }
 
     try {
       setLoading(true);
-      
+
       const resultados = [];
-      
+
       for (const parcela of parcelasSeleccionadas) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/parcelas/${parcela.parcela_id}/seleccionar`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-              "Content-Type": "application/json",
-            },
-          });
+          const response = await fetch(
+            `${API_BASE_URL}/api/v1/parcelas/${parcela.parcela_id}/seleccionar`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
           if (response.ok) {
             const data = await response.json();
             resultados.push({
               parcela_id: parcela.parcela_id,
               success: true,
-              message: data.message
+              message: data.message,
             });
-            console.log(`Parcela ${parcela.parcela_id} seleccionada correctamente`);
+            console.log(
+              `Parcela ${parcela.parcela_id} seleccionada correctamente`
+            );
           } else {
             const errorData = await response.json();
             resultados.push({
               parcela_id: parcela.parcela_id,
               success: false,
-              message: errorData.error
+              message: errorData.error,
             });
-            console.error(`Error en parcela ${parcela.parcela_id}:`, errorData.error);
+            console.error(
+              `Error en parcela ${parcela.parcela_id}:`,
+              errorData.error
+            );
           }
         } catch (error) {
           resultados.push({
             parcela_id: parcela.parcela_id,
             success: false,
-            message: `Error de conexión: ${error.message}`
+            message: `Error de conexión: ${error.message}`,
           });
         }
       }
 
-      const exitosas = resultados.filter(r => r.success).length;
-      const fallidas = resultados.filter(r => !r.success);
-      
+      const exitosas = resultados.filter((r) => r.success).length;
+      const fallidas = resultados.filter((r) => !r.success);
+
       if (exitosas > 0) {
         alert(`¡${exitosas} parcela(s) asignadas exitosamente!`);
-        
+
         if (fallidas.length > 0) {
           console.warn("Parcelas con errores:", fallidas);
         }
-        
+
         setParcelasSeleccionadas([]);
         await cargarInfoValidacion();
       } else {
-        alert("No se pudo asignar ninguna parcela. Verifica los errores en la consola.");
+        alert(
+          "No se pudo asignar ninguna parcela. Verifica los errores en la consola."
+        );
       }
-      
     } catch (error) {
       console.error("Error confirmando parcelas:", error);
       alert(`Error al confirmar parcelas: ${error.message}`);
@@ -408,7 +595,7 @@ const ArtesanoPredio = () => {
             <div className="info-card">
               <div className="info-header">
                 <h3>Selección de Parcelas</h3>
-                <button 
+                <button
                   className="btn-reload"
                   onClick={handleRecargar}
                   disabled={loading}
@@ -426,11 +613,10 @@ const ArtesanoPredio = () => {
               ) : error ? (
                 <div className="error-info">
                   <div className="error-icon"></div>
-                  <p><strong>Error:</strong> {error}</p>
-                  <button 
-                    className="btn-reintentar"
-                    onClick={handleRecargar}
-                  >
+                  <p>
+                    <strong>Error:</strong> {error}
+                  </p>
+                  <button className="btn-reintentar" onClick={handleRecargar}>
                     Reintentar
                   </button>
                 </div>
@@ -442,9 +628,11 @@ const ArtesanoPredio = () => {
                         <label>Tu rubro:</label>
                         <span className="rubro-nombre">
                           {infoValidacion.rubro_nombre}
-                          <span 
+                          <span
                             className="color-muestra"
-                            style={{ backgroundColor: infoValidacion.color_rubro }}
+                            style={{
+                              backgroundColor: infoValidacion.color_rubro,
+                            }}
                             title={infoValidacion.color_rubro}
                           ></span>
                         </span>
@@ -466,32 +654,50 @@ const ArtesanoPredio = () => {
 
                       <div className="info-item">
                         <label>Costo total de tu puesto:</label>
-                        <span className="costo-total-puesto">${infoValidacion.costo_total || 0}</span>
+                        <span className="costo-total-puesto">
+                          ${infoValidacion.costo_total || 0}
+                        </span>
                       </div>
 
                       <div className="info-item">
                         <label>Parcelas seleccionadas:</label>
-                        <span className={`seleccion-actual ${esSeleccionCorrecta() ? 'correcto' : 'advertencia'}`}>
+                        <span
+                          className={`seleccion-actual ${
+                            esSeleccionCorrecta() ? "correcto" : "advertencia"
+                          }`}
+                        >
                           {parcelasSeleccionadas.length} de {parcelasNecesarias}
-                          {!esSeleccionCorrecta() && <span className="icono-advertencia"> </span>}
-                          {esSeleccionCorrecta() && <span className="icono-correcto"> </span>}
+                          {!esSeleccionCorrecta() && (
+                            <span className="icono-advertencia"> </span>
+                          )}
+                          {esSeleccionCorrecta() && (
+                            <span className="icono-correcto"> </span>
+                          )}
                         </span>
                       </div>
 
                       <div className="info-item total">
                         <label>Costo a pagar ahora:</label>
-                        <span className="costo-actual">${calcularCostoTotal()}</span>
+                        <span className="costo-actual">
+                          ${calcularCostoTotal()}
+                        </span>
                       </div>
 
                       {parcelasSeleccionadas.length > 0 && (
                         <div className="parcelas-lista">
                           <label>Parcelas seleccionadas:</label>
                           <div className="lista-parcelas">
-                            {parcelasSeleccionadas.map(parcela => (
-                              <div key={parcela.parcela_id} className="parcela-item">
+                            {parcelasSeleccionadas.map((parcela) => (
+                              <div
+                                key={parcela.parcela_id}
+                                className="parcela-item"
+                              >
                                 Fila {parcela.fila}, Columna {parcela.columna}
                                 {parcela.rubro_info && (
-                                  <span className="rubro-parcela"> - {parcela.rubro_info.tipo}</span>
+                                  <span className="rubro-parcela">
+                                    {" "}
+                                    - {parcela.rubro_info.tipo}
+                                  </span>
                                 )}
                               </div>
                             ))}
@@ -502,18 +708,67 @@ const ArtesanoPredio = () => {
                       <div className="instrucciones">
                         <h4>Instrucciones:</h4>
                         <ul>
-                          <li>Solo puedes seleccionar parcelas de tu rubro: <strong>{infoValidacion.rubro_nombre}</strong></li>
-                          <li>Las parcelas deben estar <strong>disponibles</strong> (no ocupadas)</li>
-                          <li>Selecciona exactamente <strong>{parcelasNecesarias} parcela(s)</strong></li>
-                          <li>Clickee en una parcela para seleccionarla/deseleccionarla</li>
+                          <li>
+                            Solo puedes seleccionar parcelas de tu rubro:{" "}
+                            <strong>{infoValidacion.rubro_nombre}</strong>
+                          </li>
+                          <li>
+                            Las parcelas deben estar{" "}
+                            <strong>disponibles</strong> (no ocupadas)
+                          </li>
+                          <li>
+                            Selecciona exactamente{" "}
+                            <strong>{parcelasNecesarias} parcela(s)</strong>
+                          </li>
+                          <li>
+                            Clickee en una parcela para
+                            seleccionarla/deseleccionarla
+                          </li>
                         </ul>
                       </div>
+
+                      <button
+                        className="btn-pagar"
+                        onClick={iniciarPago}
+                        disabled={
+                          !infoValidacion?.puede_solicitar_parcelas ||
+                          parcelasSeleccionadas.length === 0 ||
+                          !esSeleccionCorrecta() ||
+                          procesandoPago
+                        }
+                      >
+                        {procesandoPago
+                          ? "Procesando..."
+                          : `Pagar reserva - $${calcularCostoTotal()}`}
+                      </button>
+
+                      {/* BOTÓN PARA CANCELAR PAGO EXISTENTE - Solo se muestra si hay pago pendiente */}
+                      {infoValidacion?.pago_pendiente && (
+                        <div className="pago-pendiente-alerta">
+                          <div className="alerta-contenido">
+                            <h4>⚠️ Tienes un pago pendiente</h4>
+                            <p>
+                              Debes cancelar el pago anterior para crear uno
+                              nuevo.
+                            </p>
+                            <button
+                              className="btn-cancelar-pago"
+                              onClick={cancelarPagoExistente}
+                              disabled={procesandoPago}
+                            >
+                              {procesandoPago
+                                ? "Cancelando..."
+                                : "Cancelar Pago Anterior"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="acciones">
                         <button
                           className="btn-confirmar"
                           onClick={handleConfirmarParcelas}
-                          disabled={loading || !esSeleccionCorrecta()}
+                          disabled={!infoValidacion?.pago_aprobado}
                         >
                           {loading ? (
                             <>
@@ -521,13 +776,16 @@ const ArtesanoPredio = () => {
                               Procesando...
                             </>
                           ) : (
-                            `Confirmar ${parcelasSeleccionadas.length} Parcela(s) - $${calcularCostoTotal()}`
+                            `Confirmar ${
+                              parcelasSeleccionadas.length
+                            } Parcela(s) - $${calcularCostoTotal()}`
                           )}
                         </button>
 
                         {!esSeleccionCorrecta() && (
                           <div className="mensaje-advertencia">
-                            Selecciona {parcelasNecesarias} parcela(s) para continuar
+                            Selecciona {parcelasNecesarias} parcela(s) para
+                            continuar
                           </div>
                         )}
                       </div>
@@ -536,25 +794,32 @@ const ArtesanoPredio = () => {
 
                   {infoValidacion.ya_tiene_parcela && (
                     <div className="ya-tiene-parcela">
-                      <p><strong>Ya tenes parcelas asignadas</strong></p>
-                      <p>No podes seleccionar nuevas parcelas porque ya tenes asignadas.</p>
+                      <p>
+                        <strong>Ya tenes parcelas asignadas</strong>
+                      </p>
+                      <p>
+                        No podes seleccionar nuevas parcelas porque ya tenes
+                        asignadas.
+                      </p>
                     </div>
                   )}
 
-                  {!infoValidacion.puede_solicitar_parcelas && !infoValidacion.ya_tiene_parcela && (
-                    <div className="no-puede-solicitar">
-                      <p><strong>No podes solicitar parcelas en este momento</strong></p>
-                      <p>{infoValidacion.motivo}</p>
-                    </div>
-                  )}
+                  {!infoValidacion.puede_solicitar_parcelas &&
+                    !infoValidacion.ya_tiene_parcela && (
+                      <div className="no-puede-solicitar">
+                        <p>
+                          <strong>
+                            No podes solicitar parcelas en este momento
+                          </strong>
+                        </p>
+                        <p>{infoValidacion.motivo}</p>
+                      </div>
+                    )}
                 </>
               ) : (
                 <div className="sin-info">
                   <p>No se pudo cargar la información de validación</p>
-                  <button 
-                    className="btn-reintentar"
-                    onClick={handleRecargar}
-                  >
+                  <button className="btn-reintentar" onClick={handleRecargar}>
                     Reintentar
                   </button>
                 </div>

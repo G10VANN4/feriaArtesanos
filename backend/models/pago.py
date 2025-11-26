@@ -11,7 +11,14 @@ class Pago(db.Model):
     comprobante = db.Column(db.String(500))
     parcelas_calculadas = db.Column(db.Integer)
     dimension_base_calculo = db.Column(db.Numeric(8, 2))
+    # para Mercado Pago
+    preference_id = db.Column(db.String(255), unique=True)
+    payment_id = db.Column(db.String(255), unique=True)
+    init_point = db.Column(db.Text)
+    fecha_creacion = db.Column(db.DateTime, default=db.func.current_timestamp())
 
+    solicitud = db.relationship('Solicitud', backref=db.backref('pago', uselist=False))
+    estado_pago = db.relationship('EstadoPago', backref='pagos')
     
     def to_dict(self):
         return {
@@ -22,8 +29,13 @@ class Pago(db.Model):
             'fecha_pago': self.fecha_pago.isoformat() if self.fecha_pago else None,
             'comprobante': self.comprobante,
             'parcelas_calculadas': self.parcelas_calculadas,
-            'dimension_base_calculo': float(self.dimension_base_calculo) if self.dimension_base_calculo else None
+            'dimension_base_calculo': float(self.dimension_base_calculo) if self.dimension_base_calculo else None,
+            'preference_id': self.preference_id,
+            'payment_id': self.payment_id,
+            'init_point': self.init_point,
+            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
+            'fecha_actualizacion': db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
         }
     
     def __repr__(self):
-        return f'<Pago {self.pago_id}>'
+        return f'<Pago {self.pago_id} - {self.estado_pago.tipo if self.estado_pago else "Sin estado"}>'

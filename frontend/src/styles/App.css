@@ -4537,10 +4537,8 @@ h3 {
 .modos-administrador button.active {
   background: #8b4513;
   color: white;
-  border-color:#8b4513;
+  border-color: #8b4513;
 }
-
-
 
 .botones-accion {
   display: flex;
@@ -4732,7 +4730,6 @@ h3 {
   }
 }
 
-
 .panel-asignar-rubro {
   background: #f8f9fa;
   padding: 1rem;
@@ -4804,8 +4801,6 @@ h3 {
   font-size: 0.9rem;
 }
 
-
-
 .acciones-rubro p {
   margin: 0 0 0.5rem 0;
   color: #5c4033;
@@ -4867,23 +4862,20 @@ h3 {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .selector-rubro select {
     min-width: 100%;
   }
-  
+
   .botones-accion {
     flex-direction: column;
   }
-  
+
   .btn-asignar-rubro,
   .btn-cancelar {
     width: 100%;
   }
 }
-
-
-
 
 /* Estilos para la página de términos */
 .terminos-page-container {
@@ -4942,7 +4934,7 @@ h3 {
   border-radius: 12px;
   padding: 20px;
   margin: 20px 0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .metrics-grid {
@@ -5013,8 +5005,6 @@ h3 {
   transition: 0.2s;
 }
 
-
-
 .btn-guardar {
   width: 100%;
   padding: 12px;
@@ -5030,12 +5020,9 @@ h3 {
   background-color: #a25b23;
 }
 
-
-
-
 .parcela.seleccionable {
   cursor: pointer;
-  border: 2px solid #8B4513;
+  border: 2px solid #8b4513;
 }
 
 .parcela.seleccionable:hover {
@@ -5050,8 +5037,8 @@ h3 {
 }
 
 .parcela.seleccionada {
-  background-color: #FF6B35 !important; /* Naranja fuerte */
-  border: 4px solid #FF4500 !important; /* Rojo anaranjado */
+  background-color: #ff6b35 !important; /* Naranja fuerte */
+  border: 4px solid #ff4500 !important; /* Rojo anaranjado */
   box-shadow: 0 0 20px rgba(255, 107, 53, 0.8);
   transform: scale(1.15);
   z-index: 100;
@@ -5076,12 +5063,12 @@ h3 {
   color: white !important;
   font-weight: bold;
   font-size: 1.1em;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
 }
 
 /* Efecto hover para parcelas seleccionadas */
 .parcela.seleccionada:hover {
-  background-color: #FF4500 !important;
+  background-color: #ff4500 !important;
   transform: scale(1.2);
 }
 .parcela.ocupada {
@@ -5103,7 +5090,7 @@ h3 {
 }
 
 .estado.activo {
-  color: #4CAF50;
+  color: #4caf50;
   font-weight: bold;
 }
 
@@ -5118,22 +5105,21 @@ h3 {
   cursor: not-allowed;
 }
 
-
 .estado-validacion.activo {
-  color: #8B4513; /* Marrón oscuro */
+  color: #8b4513; /* Marrón oscuro */
   font-weight: bold;
   font-size: 1.1em;
 }
 
 .estado-validacion.inactivo {
-  color: #8B4513; /* Marrón oscuro */
+  color: #8b4513; /* Marrón oscuro */
   font-weight: bold;
   font-size: 1.1em;
 }
 
 .ya-tiene-parcela-info {
-  background: #F5F5DC; /* Marrón claro */
-  color: #8B4513;/* Marrón oscuro */
+  background: #f5f5dc; /* Marrón claro */
+  color: #8b4513; /* Marrón oscuro */
   margin-top: 10px;
   font-weight: 600;
 }
@@ -5166,14 +5152,14 @@ h3 {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .info-section {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   height: fit-content;
   position: sticky;
   top: 20px;
@@ -5263,13 +5249,14 @@ h3 {
   font-weight: 600;
 }
 
-.dimensiones, .parcelas-necesarias {
+.dimensiones,
+.parcelas-necesarias {
   font-weight: 600;
   color: #6c757d;
 }
 
 .seleccion-actual.correcto {
-  color: #FF0000;
+  color: #ff0000;
   font-weight: 600;
 }
 
@@ -5278,7 +5265,8 @@ h3 {
   font-weight: 600;
 }
 
-.icono-advertencia, .icono-correcto {
+.icono-advertencia,
+.icono-correcto {
   margin-left: 4px;
 }
 
@@ -5380,29 +5368,34 @@ h3 {
   border: 1px solid #ffeaa7;
 }
 
-.ya-tiene-parcela, .no-puede-solicitar, .sin-info {
-  background: #F5F5DC; /* Marrón claro */
-  border: 2px solid #D2B48C;
-  color: #8B4513; /* Marrón oscuro */
+.ya-tiene-parcela,
+.no-puede-solicitar,
+.sin-info {
+  background: #f5f5dc; /* Marrón claro */
+  border: 2px solid #d2b48c;
+  color: #8b4513; /* Marrón oscuro */
   text-align: center;
   padding: 25px;
   border-radius: 12px;
   margin: 15px 0;
 }
-.ya-tiene-parcela p, .no-puede-solicitar p, .sin-info p {
+.ya-tiene-parcela p,
+.no-puede-solicitar p,
+.sin-info p {
   margin: 8px 0;
   font-weight: 600;
-  color: #8B4513; /* Marrón oscuro */
+  color: #8b4513; /* Marrón oscuro */
 }
 
-.ya-tiene-parcela p:first-child, .no-puede-solicitar p:first-child {
+.ya-tiene-parcela p:first-child,
+.no-puede-solicitar p:first-child {
   font-size: 1.2em;
   font-weight: bold;
-  color: #8B4513; /* Marrón oscuro */
+  color: #8b4513; /* Marrón oscuro */
 }
 .ya-tiene-parcela {
-  background: #F5F5DC;
-  border: 1px solid #D2B48C;
+  background: #f5f5dc;
+  border: 1px solid #d2b48c;
   color: #155724;
 }
 
@@ -5418,12 +5411,15 @@ h3 {
   color: #721c24;
 }
 
-.success-icon, .warning-icon, .error-icon {
+.success-icon,
+.warning-icon,
+.error-icon {
   font-size: 2em;
   margin-bottom: 12px;
 }
 
-.btn-ver-parcela, .btn-reintentar {
+.btn-ver-parcela,
+.btn-reintentar {
   background: #007bff;
   color: white;
   border: none;
@@ -5434,7 +5430,8 @@ h3 {
   transition: background 0.3s;
 }
 
-.btn-ver-parcela:hover, .btn-reintentar:hover {
+.btn-ver-parcela:hover,
+.btn-reintentar:hover {
   background: #0056b3;
 }
 
@@ -5463,20 +5460,22 @@ h3 {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .info-validacion-artesano {
-  background: #F5F5DC; /* Marrón claro */
-  border: 2px solid #D2B48C;
+  background: #f5f5dc; /* Marrón claro */
+  border: 2px solid #d2b48c;
   border-radius: 10px;
   padding: 15px;
   margin: 10px 0;
   box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
 }
-
-
 
 /* Estilos para parcelas del mismo rubro */
 .parcela-celda.mismo-rubro-bloqueado {
@@ -5490,7 +5489,7 @@ h3 {
   .predio-container {
     grid-template-columns: 1fr;
   }
-  
+
   .info-section {
     position: static;
   }
@@ -5510,4 +5509,44 @@ h3 {
 .info-item.total {
   background: #fff3cd;
   border-left-color: #ffc107;
+}
+
+/* Estilos para la alerta de pago pendiente */
+.pago-pendiente-alerta {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.alerta-contenido h4 {
+  margin: 0 0 8px 0;
+  color: #856404;
+}
+
+.alerta-contenido p {
+  margin: 0 0 12px 0;
+  color: #856404;
+}
+
+.btn-cancelar-pago {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.btn-cancelar-pago:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.btn-cancelar-pago:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
 }
