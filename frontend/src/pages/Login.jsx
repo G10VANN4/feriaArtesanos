@@ -26,8 +26,8 @@ const Login = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        localStorage.setItem('access_token', result.token);
-        localStorage.setItem('user_role', result.role || 'admin');
+        //localStorage.setItem('access_token', result.token);
+        //localStorage.setItem('user_role', result.role || 'admin');
         
         // REDIRECCIÓN SEGÚN ROL
         if (result.rol_id === 2) { // Administrador

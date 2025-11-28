@@ -1,10 +1,11 @@
-from flask import Flask
-from flask_cors import CORS
 from dotenv import load_dotenv
 import os
+from flask import Flask
+from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
 from models.base import db
+from datetime import timedelta  # ✅ NUEVO IMPORT
 
 load_dotenv()
 
@@ -22,12 +23,19 @@ from controllers.organizador_controller import organizador_bp
 from controllers.pago_controller import pago_bp
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)  # ✅ MODIFICADO: agregar supports_credentials
 app.config.from_object(Config)
 
+# ✅ NUEVA CONFIGURACIÓN JWT COMPLETA
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
-jwt = JWTManager(app)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+app.config["JWT_COOKIE_SECURE"] = False
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+app.config["JWT_COOKIE_SAMESITE"] = "Lax"
+app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 
+jwt = JWTManager(app)
 db.init_app(app)
 
 # Registrar Blueprints DIRECTAMENTE desde controllers
@@ -45,26 +53,20 @@ app.register_blueprint(pago_bp)
 
 if __name__ == '__main__':
     print("=" * 70)
-    print(" SISTEMA DE FERIAS - TODOS LOS ENDPOINTS EN CONTROLLERS")
+    print(" SISTEMA DE FERIAS - AUTENTICACIÓN CON COOKIES ACTIVADA")
     print("=" * 70)
-    print("Endpoints disponibles:")
-    print("http://localhost:5000/")
-    print("http://localhost:5000/api/init-db")
-    print("http://localhost:5000/api/status")
-    print("http://localhost:5000/api/test-connection")
-    print("http://localhost:5000/api/v1/mapa/parcelas")
-
-    # 🔍 DEBUG: Mostrar TODAS las rutas de pago
-    print("\n🔍 RUTAS DE PAGO REGISTRADAS:")
-    with app.app_context():
-        for rule in app.url_map.iter_rules():
-            if 'pago' in str(rule):
-                print(f"📍 {rule.rule} - Métodos: {list(rule.methods)}")
+    print("🔐 Endpoints de Auth con Cookies:")
+    print("http://localhost:5000/auth/login")
+    print("http://localhost:5000/auth/logout") 
+    print("http://localhost:5000/auth/check-auth")
+    print("=" * 70)
     
-    # 🔍 DEBUG: Verificar blueprint de pago específicamente
-    print(f"\n🔍 BLUEPRINT PAGO: {pago_bp}")
-    print(f"🔍 Prefijo: /api/v1/pago")
-    print(f"🔍 Nombre: {pago_bp.name}")
-
+    # 🔍 DEBUG: Mostrar configuración JWT
+    print("⚙️  Configuración JWT:")
+    print(f"   - Token Location: {app.config['JWT_TOKEN_LOCATION']}")
+    print(f"   - Cookie Name: {app.config['JWT_ACCESS_COOKIE_NAME']}")
+    print(f"   - Cookie Secure: {app.config['JWT_COOKIE_SECURE']}")
+    print(f"   - Cookie CSRF: {app.config['JWT_COOKIE_CSRF_PROTECT']}")
     print("=" * 70)
+    
     app.run(debug=True, port=5000)

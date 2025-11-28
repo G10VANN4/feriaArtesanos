@@ -1,12 +1,32 @@
 import axiosInstance from './axiosConfig';
 
+// ✅ DEFINIR fetchWithCookies ANTES de usarla
+const fetchWithCookies = async (url, options = {}) => {
+  const config = {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  };
+
+  const response = await fetch(`http://localhost:5000/auth${url}`, config);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw errorData || { msg: `Error ${response.status}` };
+  }
+  
+  return response.json();
+};
+
 export const authService = {
   register: async (userData) => {
     try {
       const response = await axiosInstance.post('/auth/register', {
         email: userData.email,
         password: userData.password,
-        // ❌ ELIMINA 'nombre' - tu backend no lo espera
       });
       return response.data;
     } catch (error) {
@@ -18,59 +38,98 @@ export const authService = {
     try {
       console.log('🔍 Intentando login con:', credentials.email);
       
-      const response = await axiosInstance.post('/auth/login', credentials);
+      // Usar fetch para cookies
+      const response = await fetch('http://localhost:5000/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+        credentials: 'include',
+      });
+
+      const data = await response.json();
       
-      console.log('✅ Login exitoso, respuesta:', response.data);
+      if (!response.ok) {
+        throw data || { msg: 'Error en login' };
+      }
       
-      // ✅ VERIFICAR que la respuesta tiene los datos correctos
-      if (response.data && response.data.access_token) {
-        // Guardar token en localStorage
-        localStorage.setItem('token', response.data.access_token);
+      console.log('✅ Login exitoso, respuesta:', data);
+      
+      if (data && data.access_token) {
+        localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify({
-          usuario_id: response.data.usuario_id,
+          usuario_id: data.usuario_id,
           email: credentials.email,
-          rol_id: response.data.rol_id,
+          rol_id: data.rol_id,
         }));
         
-        console.log('✅ Token guardado en localStorage');
+        console.log('✅ Token guardado en localStorage para compatibilidad');
         
-        // Analytics (solo si existe)
         if (typeof analyticsService !== 'undefined' && analyticsService.trackLogin) {
           analyticsService.trackLogin({
-            usuario_id: response.data.usuario_id,
-            rol_id: response.data.rol_id
+            usuario_id: data.usuario_id,
+            rol_id: data.rol_id
           });
         }
         
-        return response.data;
+        return data;
       } else {
-        console.error('❌ Respuesta del login incompleta:', response.data);
+        console.error('❌ Respuesta del login incompleta:', data);
         throw { msg: 'Respuesta del servidor incompleta' };
       }
       
     } catch (error) {
       console.error('❌ Error en authService.login:', error);
-      
-      // ✅ MEJOR MANEJO DE ERRORES
-      if (error.response) {
-        // El servidor respondió con un código de error
-        console.error('❌ Error del servidor:', error.response.status, error.response.data);
-        throw error.response.data;
-      } else if (error.request) {
-        // La petición se hizo pero no hubo respuesta
-        console.error('❌ Error de red:', error.request);
-        throw { msg: 'Error de conexión con el servidor' };
-      } else {
-        // Algo pasó al configurar la petición
-        console.error('❌ Error de configuración:', error.message);
-        throw { msg: error.message || 'Error desconocido' };
-      }
+      throw error;
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    console.log('✅ Logout ejecutado');
+  logout: async () => {
+    try {
+      await fetch('http://localhost:5000/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Error en logout service:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      console.log('✅ Logout ejecutado - localStorage limpiado');
+    }
+  },
+
+  // ✅ MÉTODOS OPTIMIZADOS SIN USELESS-CATCH
+  checkAuth: async () => {
+    const response = await fetch('http://localhost:5000/auth/check-auth', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('No autenticado');
+    }
+    
+    return await response.json();
+  },
+
+  cleanSession: async (email) => {
+    return await fetchWithCookies('/clean-session', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  devResetSessions: async () => {
+    return await fetchWithCookies('/dev-reset-sessions', {
+      method: 'POST',
+    });
+  },
+
+  devViewSessions: async () => {
+    return await fetchWithCookies('/dev-view-sessions', {
+      method: 'GET',
+    });
   }
 };

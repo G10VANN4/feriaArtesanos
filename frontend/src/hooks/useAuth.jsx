@@ -16,23 +16,46 @@ export const useAuth = () => {
 
 // Provider
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem('token')
-  );
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem('user')) || null
-  );
-  const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // ✅ NUEVO: Verificar autenticación al cargar la app
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
-    }
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      console.log('🔍 Verificando autenticación...');
+      const data = await authService.checkAuth();
+      
+      setIsAuthenticated(true);
+      
+      // Recuperar datos del usuario desde localStorage
+      const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
+      const userRole = localStorage.getItem('user_role');
+      
+      setUser({ 
+        usuario_id: data.user_id,
+        email: userFromStorage?.email,
+        rol_id: userRole ? parseInt(userRole) : userFromStorage?.rol_id
+      });
+      
+      console.log('✅ Usuario autenticado:', data.user_id);
+    // eslint-disable-next-line no-unused-vars
+    } catch (error) {
+      console.log('❌ Usuario no autenticado');
+      setIsAuthenticated(false);
+      setUser(null);
+      // Limpiar localStorage por si acaso
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_role');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const register = async (formData) => {
     setLoading(true);
@@ -57,10 +80,10 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setUser({ 
         email, 
-        rol_id: result.rol_id 
+        rol_id: result.rol_id,
+        usuario_id: result.usuario_id
       });
 
-      //  DEVUELVE el rol_id para usarlo en el Login component
       return { 
         success: true, 
         token: result.access_token,
@@ -77,8 +100,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    authService.logout();
+  const logout = async () => {
+    await authService.logout();
     setIsAuthenticated(false);
     setUser(null);
   };
@@ -89,7 +112,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     user,
-    loading
+    loading,
+    checkAuth // ✅ NUEVO: Exportar checkAuth para uso manual
   };
 
   return (

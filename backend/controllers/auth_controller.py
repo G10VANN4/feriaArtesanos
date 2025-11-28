@@ -1,4 +1,3 @@
-
 from flask import Blueprint, request, jsonify
 from models.base import db
 from models.usuario import Usuario
@@ -24,7 +23,6 @@ auth_bp = Blueprint('auth_bp', __name__)
 @auth_bp.route('/dev-reset-sessions', methods=['OPTIONS'])
 @auth_bp.route('/dev-view-sessions', methods=['OPTIONS'])
 @auth_bp.route('/session-status', methods=['OPTIONS'])
-
 def handle_options():
     return jsonify({'status': 'ok'}), 200
 
@@ -82,7 +80,6 @@ def login():
         # ✅ VERIFICAR SI PUEDE HACER LOGIN PRIMERO
         if SESSION_MANAGER_ACTIVE:
             try:
-              
                 if not session_manager.can_user_login(user_id):
                     return jsonify({'msg': 'Usuario ya tiene una sesión activa'}), 409
                 
@@ -100,17 +97,68 @@ def login():
         user_identity = f"user_{user.usuario_id}"
         access_token = create_access_token(identity=user_identity)
 
-        return jsonify({
-            'access_token': access_token,
+        # ✅ MODIFICADO: Respuesta CON COOKIE
+        response = jsonify({
+            'access_token': access_token,  # Para compatibilidad con frontend
             'rol_id': user.rol_id,
             'usuario_id': user.usuario_id,
             'msg': 'Inicio de sesión exitoso'
-        }), 200
+        })
+
+        # ✅ NUEVO: Establecer cookie con el token
+        response.set_cookie(
+            'access_token',      # nombre de la cookie
+            access_token,        # token JWT
+            max_age=60*60*24,    # 24 horas en segundos
+            secure=False,        # False en desarrollo
+            httponly=True,       # No accesible desde JavaScript
+            samesite='Lax'
+        )
+
+        print(f"🍪 Cookie establecida para usuario {user_id}")
+        return response, 200
 
     except Exception as e:
         print(f"Error en login: {str(e)}")
         return jsonify({'msg': f'Error interno: {str(e)}'}), 500
 
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    try:
+        current_user = get_jwt_identity()
+        user_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
+        
+        print(f"🔍 LOGOUT ENDPOINT - User ID: {user_id}")
+        
+        # Llamar al session manager
+        if SESSION_MANAGER_ACTIVE:
+            logout_result = session_manager.logout_user(user_id)
+            print(f"🔍 LOGOUT RESULT: {logout_result}")
+        
+        # ✅ MODIFICADO: Respuesta QUE ELIMINA LA COOKIE
+        response = jsonify({
+            'msg': 'Sesión cerrada exitosamente',
+            'logout_success': True,
+            'user_id': user_id
+        })
+        
+        # ✅ NUEVO: Eliminar la cookie
+        response.set_cookie(
+            'access_token',
+            '',
+            expires=0,    # Expirar inmediatamente
+            secure=False,
+            httponly=True,
+            samesite='Lax'
+        )
+        
+        print(f"🍪 Cookie eliminada para usuario {user_id}")
+        return response, 200
+        
+    except Exception as e:
+        print(f"❌ Error en logout: {str(e)}")
+        return jsonify({'msg': 'Error al cerrar sesión'}), 500
 
 @auth_bp.route('/clean-session', methods=['POST'])
 def clean_session():
@@ -125,7 +173,6 @@ def clean_session():
         if not user:
             return jsonify({'msg': 'Usuario no encontrado'}), 404
 
-        # ✅ CORREGIDO: Usar user_id como ENTERO
         user_id = user.usuario_id
         
         cleaned = session_manager.force_clean_user(user_id)
@@ -140,33 +187,6 @@ def clean_session():
     except Exception as e:
         print(f"Error en clean-session: {str(e)}")
         return jsonify({'msg': 'Error al limpiar sesión'}), 500
-
-@auth_bp.route('/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    try:
-        current_user = get_jwt_identity()
-        # ✅ CORREGIDO: Extraer como entero
-        user_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
-        
-        # ✅ AGREGAR LOGS PARA DEBUG
-        print(f"🔍 LOGOUT ENDPOINT - User ID: {user_id}")
-        
-        # Llamar al session manager
-        logout_result = session_manager.logout_user(user_id)
-        
-        print(f"🔍 LOGOUT RESULT: {logout_result}")
-        
-        return jsonify({
-            'msg': 'Sesión cerrada exitosamente',
-            'logout_success': True,
-            'user_id': user_id
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ Error en logout: {str(e)}")
-        return jsonify({'msg': 'Error al cerrar sesión'}), 500
-
 
 @auth_bp.route('/dev-reset-sessions', methods=['POST'])
 def dev_reset_sessions():
@@ -195,10 +215,10 @@ def dev_view_sessions():
 def check_auth():
     try:
         current_user = get_jwt_identity()
-        # ✅ CORREGIDO: Extraer como entero
         user_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
         
-        session_manager.update_activity(user_id)
+        if SESSION_MANAGER_ACTIVE:
+            session_manager.update_activity(user_id)
         
         return jsonify({
             'authenticated': True,
