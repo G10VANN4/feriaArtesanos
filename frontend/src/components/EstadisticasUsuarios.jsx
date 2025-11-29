@@ -70,7 +70,7 @@ const EstadisticasUsuarios = () => {
     setError('');
 
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("token");
       const response = await axios.get(`${API_BASE_URL}/estadisticas/usuarios`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
@@ -106,7 +106,7 @@ const EstadisticasUsuarios = () => {
     }
 
     try {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("token");
       const response = await axios.get(`${API_BASE_URL}/estadisticas/usuarios/exportar-excel`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {

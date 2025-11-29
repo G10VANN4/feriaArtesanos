@@ -24,18 +24,7 @@ from reportlab.lib.units import inch
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
-try:
-    from session_manager import session_manager
-    print(f"Admin BP: SessionManager cargado - Tipo: {type(session_manager)}")
-    print(f"Tiene método get_active_users_metrics: {hasattr(session_manager, 'get_active_users_metrics')}")
-except ImportError as e:
-    print(f"Error cargando session_manager: {e}")
-    # Fallback
-    class FallbackManager:
-        def get_active_users_metrics(self):
-            return {'total_active': 0, 'by_role': {'admin': 0, 'artesano': 0}, 'active_users': []}
-    session_manager = FallbackManager()
-    
+
 # Blueprint con prefix
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/v1') 
 
@@ -865,7 +854,6 @@ class AdminController:
 
 # RUTAS NUEVAS PARA LOS REQUERIMIENTOS
 
-
 @admin_bp.route('/solicitudes/<int:solicitud_id>/modificar', methods=['PATCH'])
 @jwt_required()
 def modificar_informacion_puesto_route(solicitud_id):
@@ -1051,41 +1039,9 @@ def get_estadisticas_rubros_todas_route():
 
     except Exception as e:
         return jsonify({'msg': 'Error interno del servidor', 'error': str(e)}), 500
-    
-  
 
-# EN admin_bp.py - MODIFICA EL ENDPOINT CON DEBUGGING:
-
-@admin_bp.route('/metrics/active-users', methods=['GET'])
-@jwt_required()
-def get_active_users_metrics():
-    """Métricas de usuarios activos en tiempo real - CON DEBUG"""
-    try:
-        print("DEBUG: Iniciando get_active_users_metrics")
-        
-        # Verificar permisos de admin
-        usuario = get_usuario_actual()
-        print(f"DEBUG: Usuario obtenido: {usuario}")
-        
-        permisos = AdminController._check_admin_permissions(usuario)
-        print(f"DEBUG: Permisos: {permisos}")
-        
-        if not isinstance(permisos, Administrador):
-            print("DEBUG: No es administrador")
-            return jsonify(permisos[0]), permisos[1]
-        
-        # Obtener métricas del session manager
-        print("DEBUG: Llamando a session_manager.get_active_users_metrics()")
-        metrics = session_manager.get_active_users_metrics()
-        print(f"DEBUG: Métricas obtenidas: {metrics}")
-        
-        return jsonify(metrics), 200
-        
-    except Exception as e:
-        print(f"ERROR CRÍTICO en active-users metrics: {str(e)}")
-        import traceback
-        print(f"TRACEBACK: {traceback.format_exc()}")
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+# ELIMINAR EL ENDPOINT DE ACTIVE USERS (ya no existe SessionManager)
+# @admin_bp.route('/metrics/active-users', methods=['GET']) - ❌ REMOVIDO
 
 # MAPA
 
@@ -1300,6 +1256,7 @@ def habilitar_parcelas():
         print(f"Error en habilitar_parcelas: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
 @admin_bp.route('/admin/parcelas/asignar-rubro', methods=['POST'])
 @jwt_required()
 def asignar_rubro_parcela():

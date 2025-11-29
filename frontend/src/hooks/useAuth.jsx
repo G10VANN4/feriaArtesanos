@@ -20,7 +20,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ NUEVO: Verificar autenticación al cargar la app
   useEffect(() => {
     checkAuth();
   }, []);
@@ -32,26 +31,23 @@ export const AuthProvider = ({ children }) => {
       
       setIsAuthenticated(true);
       
-      // Recuperar datos del usuario desde localStorage
+      
       const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
-      const userRole = localStorage.getItem('user_role');
       
       setUser({ 
         usuario_id: data.user_id,
         email: userFromStorage?.email,
-        rol_id: userRole ? parseInt(userRole) : userFromStorage?.rol_id
+        rol_id: userFromStorage?.rol_id
       });
       
-      console.log('✅ Usuario autenticado:', data.user_id);
-    // eslint-disable-next-line no-unused-vars
+      console.log('Usuario autenticado:', data.user_id);
     } catch (error) {
-      console.log('❌ Usuario no autenticado');
+      console.log(' Usuario no autenticado');
       setIsAuthenticated(false);
       setUser(null);
-      // Limpiar localStorage por si acaso
+      // Limpiar localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('user_role');
     } finally {
       setLoading(false);
     }
@@ -113,7 +109,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     user,
     loading,
-    checkAuth // ✅ NUEVO: Exportar checkAuth para uso manual
+    checkAuth
   };
 
   return (

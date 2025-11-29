@@ -47,7 +47,7 @@ const MapaGrid = ({
 
   const getHeaders = () => {
     try {
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      const token = localStorage.getItem("token");
       if (!token) {
         setError("No estás autenticado. Por favor, inicia sesión nuevamente.");
         return null;

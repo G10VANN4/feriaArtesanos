@@ -7,7 +7,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // ✅ NUEVO: Para compatibilidad con cookies
+  withCredentials: true,
 });
 
 // Interceptor para agregar token automáticamente
@@ -18,7 +18,6 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // ✅ NUEVO: Log para debug
     console.log(`🚀 ${config.method?.toUpperCase()} ${config.url}`, {
       hasToken: !!token,
       withCredentials: config.withCredentials
@@ -35,7 +34,6 @@ axiosInstance.interceptors.request.use(
 // Interceptor para manejar errores
 axiosInstance.interceptors.response.use(
   (response) => {
-    // ✅ NUEVO: Log para debug
     console.log(`✅ ${response.status} ${response.config.url}`);
     return response;
   },

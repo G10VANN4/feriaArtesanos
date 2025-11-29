@@ -1,26 +1,5 @@
 import axiosInstance from './axiosConfig';
 
-// ✅ DEFINIR fetchWithCookies ANTES de usarla
-const fetchWithCookies = async (url, options = {}) => {
-  const config = {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  };
-
-  const response = await fetch(`http://localhost:5000/auth${url}`, config);
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw errorData || { msg: `Error ${response.status}` };
-  }
-  
-  return response.json();
-};
-
 export const authService = {
   register: async (userData) => {
     try {
@@ -66,13 +45,6 @@ export const authService = {
         
         console.log('✅ Token guardado en localStorage para compatibilidad');
         
-        if (typeof analyticsService !== 'undefined' && analyticsService.trackLogin) {
-          analyticsService.trackLogin({
-            usuario_id: data.usuario_id,
-            rol_id: data.rol_id
-          });
-        }
-        
         return data;
       } else {
         console.error('❌ Respuesta del login incompleta:', data);
@@ -100,7 +72,6 @@ export const authService = {
     }
   },
 
-  // ✅ MÉTODOS OPTIMIZADOS SIN USELESS-CATCH
   checkAuth: async () => {
     const response = await fetch('http://localhost:5000/auth/check-auth', {
       method: 'GET',
@@ -112,24 +83,5 @@ export const authService = {
     }
     
     return await response.json();
-  },
-
-  cleanSession: async (email) => {
-    return await fetchWithCookies('/clean-session', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  devResetSessions: async () => {
-    return await fetchWithCookies('/dev-reset-sessions', {
-      method: 'POST',
-    });
-  },
-
-  devViewSessions: async () => {
-    return await fetchWithCookies('/dev-view-sessions', {
-      method: 'GET',
-    });
   }
 };

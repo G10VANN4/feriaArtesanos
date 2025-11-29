@@ -131,7 +131,7 @@ const Dashboard = () => {
 
   // RF17: Cargar configuraciones de rubros
   const fetchConfiguracionesRubros = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -149,7 +149,7 @@ const Dashboard = () => {
 
   // RF14: Cargar diversidad de rubros
   const fetchDiversidadRubros = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -164,7 +164,7 @@ const Dashboard = () => {
 
   // Función para cargar estadísticas de TODAS las solicitudes por rubro
   const fetchRubrosStatsTodas = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -182,7 +182,7 @@ const Dashboard = () => {
 
   // Función para cargar estadísticas de SOLO aprobadas
   const fetchRubrosStatsAprobadas = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -199,7 +199,7 @@ const Dashboard = () => {
   };
 
   const fetchSolicitudes = useCallback(async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) {
       setLoading(false);
       return;
@@ -262,7 +262,7 @@ const Dashboard = () => {
 
   // Función para exportar artesanos a PDF
   const handleExportArtesanosPDF = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -313,7 +313,7 @@ const Dashboard = () => {
 
   const handleSaveEdit = async () => {
     const idToUpdate = editId || activeSolicitudId;
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token || !idToUpdate) return;
 
     try {
@@ -368,7 +368,7 @@ const Dashboard = () => {
       )
     )
       return;
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -444,7 +444,7 @@ const Dashboard = () => {
 
   // RF17: Actualizar configuración de rubro
   const handleActualizarConfiguracion = async (rubroId, nuevosDatos) => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
