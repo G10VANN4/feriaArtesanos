@@ -1,41 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth.jsx";
-import { FaSignInAlt, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import { FaSignInAlt } from "react-icons/fa";
 import "../styles/App.css";
 
 const Login = () => {
-  const { login, isAuthenticated, user, logout, forceLogoutOtherSessions } = useAuth();
+  const { login, isAuthenticated, user, logout } = useAuth();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showSessionWarning, setShowSessionWarning] = useState(false);
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  // Verificar parámetros de URL para mensajes
-  useEffect(() => {
-    const message = searchParams.get('message');
-    
-    if (message === 'session_revoked') {
-      setError('Tu sesión ha sido cerrada porque iniciaste sesión en otro dispositivo.');
-      setShowSessionWarning(true);
-    } else if (message === 'session_expired') {
-      setError('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
-    }
-  }, [searchParams]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    // Limpiar error cuando el usuario empiece a escribir
-    if (error) setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setShowSessionWarning(false);
 
     const { email, password } = formData;
 
@@ -43,45 +26,23 @@ const Login = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        // ✅ CORREGIDO: No necesitamos limpiar el formData aquí
-        // La redirección se maneja automáticamente en el hook useAuth
-        
-        console.log('✅ Login exitoso, redirigiendo...');
-
-      } else {
-        // Manejar sesión revocada
-        if (result.message === 'session_revoked') {
-          setShowSessionWarning(true);
-          setError('Se detectó una sesión activa en otro dispositivo. ¿Quieres cerrarla?');
-        } else {
-          setError(result.message || "Error al iniciar sesión");
+        // REDIRECCIÓN SEGÚN ROL
+        if (result.rol_id === 2) { // Administrador
+          navigate("/dashboard", { replace: true });
+        } else if (result.rol_id === 3) { // Organizador
+          navigate("/gestion-usuarios", { replace: true });
+        } else { // Artesano u otros
+          navigate("/", { replace: true });
         }
-      }
-    } catch (error) {
-      // ✅ CORREGIDO: Manejar errores específicos
-      console.error('Error en login:', error);
-      setError("Error interno del sistema. Intenta nuevamente.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Manejar forzar cierre de sesiones
-  const handleForceLogout = async () => {
-    setLoading(true);
-    try {
-      const result = await forceLogoutOtherSessions();
-      if (result.success) {
-        setShowSessionWarning(false);
-        setError("Sesiones en otros dispositivos cerradas. Ahora puedes iniciar sesión.");
-        // ✅ MEJORADO: En lugar de recargar, resetear el formulario
+        setError("¡Inicio de sesión exitoso! Puedes continuar navegando.");
         setFormData({ email: "", password: "" });
+
       } else {
-        setError(result.message || "Error al cerrar sesiones");
+        setError(result.message || "Error al iniciar sesión");
       }
-    } catch (error) {
-      console.error('Error forzando logout:', error);
-      setError("Error al cerrar sesiones en otros dispositivos");
+    } catch {
+      setError("Error interno del sistema");
     } finally {
       setLoading(false);
     }
@@ -105,27 +66,6 @@ const Login = () => {
           >
             Has iniciado sesión como: <strong>{user?.email}</strong>
           </p>
-          
-          {/* Información de sesión única */}
-          <div className="session-info" style={{
-            backgroundColor: '#f0f8ff',
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            border: '1px solid #d1ecf1',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.5rem'
-          }}>
-            <FaInfoCircle style={{ color: '#1890ff', marginTop: '2px' }} />
-            <div>
-              <strong style={{ color: '#0c5460' }}>Sesión única activa</strong>
-              <p style={{ margin: '0.25rem 0 0 0', color: '#0c5460', fontSize: '0.9rem' }}>
-                Solo puedes tener una sesión activa a la vez. Si inicias sesión en otro dispositivo, esta sesión se cerrará automáticamente.
-              </p>
-            </div>
-          </div>
-
           <div
             style={{
               display: "flex",
@@ -176,70 +116,7 @@ const Login = () => {
           <FaSignInAlt className="login-icon" />
           Iniciar Sesión
         </h2>
-        
-        {/* Advertencia de sesión única */}
-        {showSessionWarning && (
-          <div className="session-warning" style={{
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffeaa7',
-            borderRadius: '8px',
-            padding: '1rem',
-            marginBottom: '1rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <FaExclamationTriangle style={{ color: '#856404', marginTop: '2px' }} />
-              <div>
-                <strong style={{ color: '#856404' }}>Sesión detectada en otro dispositivo</strong>
-                <p style={{ margin: '0.25rem 0 0 0', color: '#856404', fontSize: '0.9rem' }}>
-                  Para iniciar sesión aquí, debes cerrar la sesión activa en otros dispositivos.
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <button 
-                onClick={handleForceLogout}
-                disabled={loading}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '0.8rem',
-                  opacity: loading ? 0.6 : 1
-                }}
-              >
-                {loading ? 'Procesando...' : 'Cerrar otras sesiones'}
-              </button>
-              <button 
-                onClick={() => {
-                  setShowSessionWarning(false);
-                  setError('');
-                }}
-                disabled={loading}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: 'transparent',
-                  color: '#856404',
-                  border: '1px solid #856404',
-                  borderRadius: '4px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '0.8rem',
-                  opacity: loading ? 0.6 : 1
-                }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {error && !showSessionWarning && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -268,39 +145,10 @@ const Login = () => {
               className="form-input"
             />
           </div>
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className="login-button"
-            style={{
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1
-            }}
-          >
+          <button type="submit" disabled={loading} className="login-button">
             {loading ? "Iniciando sesión..." : "Entrar"}
           </button>
         </form>
-
-        {/* Información sobre sesión única */}
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '0.75rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #e9ecef',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <FaInfoCircle style={{ color: '#6c757d', fontSize: '0.9rem' }} />
-          <p style={{ 
-            margin: 0, 
-            fontSize: '0.8rem', 
-            color: '#6c757d'
-          }}>
-            <strong>Sesión única:</strong> Solo puedes estar conectado en un dispositivo a la vez
-          </p>
-        </div>
 
         {/* Enlace para registrarse */}
         <p className="login-link">
