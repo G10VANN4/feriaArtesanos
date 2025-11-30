@@ -7,7 +7,7 @@ from flask_jwt_extended import (
 )
 from datetime import timedelta, datetime, timezone
 import uuid
-from utils.token_manager import TokenManager  # NUEVA IMPORTACIÓN
+from utils.token_manager import TokenManager  
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -54,7 +54,7 @@ def register():
 def login():
     try:
         data = request.get_json()
-        print(f"🔐 LOGIN INTENT - Email: {data.get('email')}")
+        print(f"LOGIN INTENT - Email: {data.get('email')}")
         
         email = data.get('email')
         password = data.get('password')
@@ -63,26 +63,24 @@ def login():
         if not user or not user.check_password(password):
             return jsonify({'msg': 'Credenciales inválidas'}), 401
 
-        # Terminar sesión anterior
         TokenManager.terminate_active_session(user.usuario_id)
 
-        # Crear nuevo token CON TODOS LOS CLAIMS NECESARIOS
         jti = str(uuid.uuid4())
         
         additional_claims = {
             "jti": jti,
-            "usuario_id": user.usuario_id,  # ✅ Asegurar que esto está incluido
+            "usuario_id": user.usuario_id,  
             "rol_id": user.rol_id,
             "email": user.email
         }
         
         access_token = create_access_token(
             identity=f"user_{user.usuario_id}",
-            additional_claims=additional_claims,  # ✅ Pasar los claims correctamente
+            additional_claims=additional_claims,  
             expires_delta=timedelta(hours=24)
         )
 
-        # Registrar token como activo
+
         expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         TokenManager.add_active_session(user.usuario_id, jti, expires_at)
 
@@ -95,7 +93,7 @@ def login():
         })
 
         response.set_cookie(
-            'access_token',  # ✅ Esta cookie debe contener el JWT token
+            'access_token',  
             access_token,
             max_age=60*60*24,
             secure=False,
@@ -103,11 +101,11 @@ def login():
             samesite='Lax'
         )
 
-        print(f"✅ LOGIN EXITOSO - User: {user.usuario_id}, JTI: {jti}")
+        print(f"LOGIN EXITOSO - User: {user.usuario_id}, JTI: {jti}")
         return response, 200
 
     except Exception as e:
-        print(f"❌ LOGIN ERROR: {str(e)}")
+        print(f"LOGIN ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'msg': f'Error interno: {str(e)}'}), 500
@@ -168,14 +166,14 @@ def check_auth():
             usuario_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
         
         # NUEVO: Debug para ver qué token se está verificando
-        print(f"🔐 CHECK-AUTH - User: {usuario_id}, JTI: {jti}")
+        print(f"CHECK-AUTH - User: {usuario_id}, JTI: {jti}")
         
         # Verificar que el token no esté revocado
         if TokenManager.is_token_revoked(jti):
-            print(f"❌ Token revocado detectado: {jti}")
+            print(f"Token revocado detectado: {jti}")
             return jsonify({'authenticated': False, 'msg': 'Token ha sido revocado. Por favor inicie sesión nuevamente.'}), 401
         
-        print(f"✅ Token válido: {jti}")
+        print(f"Token válido: {jti}")
         return jsonify({
             'authenticated': True,
             'user_id': usuario_id,
@@ -184,10 +182,9 @@ def check_auth():
         }), 200
         
     except Exception as e:
-        print(f"❌ Error en check-auth: {str(e)}")
+        print(f"Error en check-auth: {str(e)}")
         return jsonify({'authenticated': False, 'msg': str(e)}), 401
 
-# NUEVO: Endpoint para forzar cierre de sesión en otros dispositivos
 @auth_bp.route('/force-logout-other-sessions', methods=['POST'])
 @jwt_required()
 def force_logout_other_sessions():
