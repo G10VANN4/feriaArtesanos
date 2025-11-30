@@ -14,45 +14,59 @@ export const useAuth = () => {
   return context;
 };
 
-// Provider
+// Provider MEJORADO
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     checkAuth();
-  }, []);
+      
+      // NUEVO: Verificar autenticación periódicamente cada 5 minutos
+      const interval = setInterval(() => {
+        if (isAuthenticated) {
+          console.log('🔄 Verificación periódica de sesión...');
+          checkAuth();
+        }
+      }, 5 * 60 * 1000);
 
-  const checkAuth = async () => {
+      return () => clearInterval(interval);
+    }, [isAuthenticated]);
+
+    const checkAuth = async () => {
     try {
       console.log('🔍 Verificando autenticación...');
       const data = await authService.checkAuth();
       
-      setIsAuthenticated(true);
-      
-      
-      const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
-      
-      setUser({ 
-        usuario_id: data.user_id,
-        email: userFromStorage?.email,
-        rol_id: userFromStorage?.rol_id
-      });
-      
-      console.log('Usuario autenticado:', data.user_id);
+      if (data.authenticated) {
+        setIsAuthenticated(true);
+        
+        // ✅ SOLO usar localStorage para info del usuario, NO para autenticación
+        const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        setUser({ 
+          usuario_id: data.user_id || userFromStorage?.usuario_id,
+          email: userFromStorage?.email,
+          rol_id: data.rol_id || userFromStorage?.rol_id
+        });
+        
+        console.log('✅ Usuario autenticado via cookies');
+      } else {
+        throw new Error('No autenticado');
+      }
     } catch (error) {
-      console.log(' Usuario no autenticado');
+      console.log('❌ Usuario no autenticado:', error.message);
       setIsAuthenticated(false);
       setUser(null);
-      // Limpiar localStorage
-      localStorage.removeItem('token');
+      // ✅ SOLO limpiar info del usuario, las cookies las maneja el backend
       localStorage.removeItem('user');
     } finally {
       setLoading(false);
+      setSessionChecked(true);
     }
   };
-
   const register = async (formData) => {
     setLoading(true);
     try {
@@ -84,9 +98,19 @@ export const AuthProvider = ({ children }) => {
         success: true, 
         token: result.access_token,
         rol_id: result.rol_id,  
+        usuario_id: result.usuario_id,
         email: email 
       };
     } catch (error) {
+      // NUEVO: Manejar específicamente sesión revocada
+      if (error.msg === 'session_revoked') {
+        return {
+          success: false,
+          message: 'session_revoked',
+          details: error.details
+        };
+      }
+      
       return {
         success: false,
         message: error.msg || 'Credenciales inválidas',
@@ -102,13 +126,28 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // NUEVO: Forzar cierre de otras sesiones
+  const forceLogoutOtherSessions = async () => {
+    try {
+      const result = await authService.forceLogoutOtherSessions();
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error al cerrar sesiones en otros dispositivos',
+      };
+    }
+  };
+
   const value = {
     register,
     login,
     logout,
+    forceLogoutOtherSessions, // NUEVO
     isAuthenticated,
     user,
     loading,
+    sessionChecked, // NUEVO
     checkAuth
   };
 

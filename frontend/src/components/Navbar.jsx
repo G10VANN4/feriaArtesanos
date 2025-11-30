@@ -48,11 +48,8 @@ const Navbar = () => {
     if (isAuthenticated && user?.rol_id === 1) {
       try {
         setCargandoSolicitud(true);
-        const token = localStorage.getItem("token");
-        const response = await axios.get("/solicitudes", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
+        // ✅ ELIMINAR el header Authorization manual - usar cookies
+        const response = await axios.get("/solicitudes");
         setTieneSolicitud(!!response.data.solicitud);
       } catch (error) {
         console.error("Error verificando solicitud:", error);

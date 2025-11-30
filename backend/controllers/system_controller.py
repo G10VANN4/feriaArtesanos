@@ -240,3 +240,24 @@ def status():
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@system_bp.route('/system/debug-tables', methods=['GET'])
+def debug_tables():
+    """Endpoint temporal para debug de tablas de tokens"""
+    try:
+        from models.active_token import ActiveToken
+        from models.token_blacklist import TokensBlacklist
+        
+        active_tokens = ActiveToken.query.all()
+        blacklisted_tokens = TokensBlacklist.query.all()
+        
+        return jsonify({
+            'active_tokens': [token.to_dict() for token in active_tokens],
+            'blacklisted_tokens': [token.to_dict() for token in blacklisted_tokens],
+            'counts': {
+                'active': len(active_tokens),
+                'blacklisted': len(blacklisted_tokens)
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

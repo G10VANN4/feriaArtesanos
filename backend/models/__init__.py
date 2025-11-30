@@ -28,5 +28,5 @@ __all__ = [
     'EstadoPago', 'EstadoNotificacion', 'Rubro', 'Parcela', 'Mapa',
     'Tipo_parcela', 'LimiteRubro', 'Artesano', 'Administrador', 'Organizador',
     'Solicitud', 'SolicitudFoto', 'SolicitudParcela', 'Pago', 'Notificacion',
-    'HistorialParticipacion'
+    'HistorialParticipacion','TokensBlacklist', 'ActiveToken'
 ]
