@@ -76,6 +76,8 @@ def revoked_token_callback(jwt_header, jwt_payload):
         'authenticated': False
     }, 401
 
+
+
 # Registrar Blueprints
 app.register_blueprint(system_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
