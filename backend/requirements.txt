@@ -31,3 +31,8 @@ tzdata==2025.2
 numpy==2.3.4
 et_xmlfile==2.0.0
 mercadopago
+pandas
+google-analytics-data==0.18.0
+google-auth==2.27.0
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
