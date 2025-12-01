@@ -12,10 +12,10 @@ class Pago(db.Model):
     parcelas_calculadas = db.Column(db.Integer)
     dimension_base_calculo = db.Column(db.Numeric(8, 2))
     # para Mercado Pago
-    preference_id = db.Column(db.String(255), unique=True)
-    payment_id = db.Column(db.String(255), unique=True)
+    preference_id = db.Column(db.String(255), unique=True, nullable=True)
+    payment_id = db.Column(db.String(255), unique=True, nullable=True)
     init_point = db.Column(db.Text)
-    fecha_creacion = db.Column(db.DateTime, default=db.func.current_timestamp())
+    fecha_creacion = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
     solicitud = db.relationship('Solicitud', backref=db.backref('pago', uselist=False))
     estado_pago = db.relationship('EstadoPago', backref='pagos')
@@ -34,7 +34,7 @@ class Pago(db.Model):
             'payment_id': self.payment_id,
             'init_point': self.init_point,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'fecha_actualizacion': db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+            'fecha_actualizacion': self.fecha_actualizacion.isoformat() if self.fecha_actualizacion else None
         }
     
     def __repr__(self):

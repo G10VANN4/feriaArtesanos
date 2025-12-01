@@ -83,7 +83,7 @@ def crear_preferencia():
             return jsonify({"error": "No se recibieron parcelas seleccionadas"}), 400
 
         precio_actual = float(rubro.precio_parcela)
-        monto = parcelas_count * precio_actual
+        monto = float(solicitud.costo_total)
 
         print(f"8. Monto calculado: {monto}")
 
@@ -125,8 +125,6 @@ def crear_preferencia():
 
         print("✅ PASÓ TODAS LAS VALIDACIONES - Creando preferencia MP...")
 
-        monto = float(solicitud.costo_total)
-
         if monto <= 0:
             return jsonify({"error": "El monto debe ser mayor a 0"}), 400
 
@@ -165,6 +163,11 @@ def crear_preferencia():
         print("12. Creando preferencia de MercadoPago...")
 
         # Crear preferencia de MercadoPago
+        print("🎯 CONFIGURACIÓN FINAL MP:")
+        print(f"   - Token SANDBOX: {ACCESS_TOKEN.startswith('TEST-')}")
+        print(f"   - Preferencia para: {parcelas_count} parcelas")
+        print(f"   - Monto: {monto}")
+        print(f"   - URLs configuradas correctamente")
         preference_data = {
             "items": [
                 {
@@ -211,8 +214,10 @@ def crear_preferencia():
             monto=monto,
             estado_pago_id=1,
             preference_id=pref["id"],
-            init_point=pref["init_point"],
-            fecha_creacion=datetime.now()
+            init_point=pref["init_point"] or pref.get("sandbox_init_point", ""),
+            fecha_creacion=datetime.now(),
+            payment_id=None,
+            fecha_pago=None
         )
 
         db.session.add(pago)
