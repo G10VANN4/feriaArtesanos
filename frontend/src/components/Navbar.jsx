@@ -310,6 +310,13 @@ const Navbar = () => {
                 )}
               </div>
             )}
+            {isAuthenticated && user?.rol_id === 2 && (
+              <>
+                <Link to="/dashboard" className="btn-config"> 
+                  Dashboard
+                </Link>
+              </>
+            )}
             {isAuthenticated && user?.rol_id === 3 && (
               <>
                 <Link to="/configurar-mapa" className="btn-config">
