@@ -22,7 +22,6 @@ import "../styles/App.css";
 import Navbar from "../components/Navbar";
 import EstadisticasUsuarios from "../components/EstadisticasUsuarios";
 import MapaGrid from "../components/MapaGrid";
-import ActiveUsersPanel from '../components/ActiveUsersPanel';
 
 const API_BASE_URL = "http://localhost:5000/api/v1";
 
@@ -897,10 +896,6 @@ const Dashboard = () => {
         {/* Sección de Estadísticas */}
         <div className="estadisticas-section">
           <EstadisticasUsuarios />
-        </div>
-        
-        <div className="active-users-section">
-          <ActiveUsersPanel />
         </div>
 
       </motion.div>
