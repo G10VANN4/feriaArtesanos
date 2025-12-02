@@ -16,6 +16,10 @@ import os
 from datetime import datetime, timedelta
 import json
 from sqlalchemy.exc import SQLAlchemyError
+import tempfile
+from flask import send_file
+from utils.pdf_generator import generar_comprobante_pago
+
 
 pago_bp = Blueprint("pago", __name__, url_prefix="/api/v1/pago")
 
@@ -28,14 +32,14 @@ mp = None
 if ACCESS_TOKEN:
     try:
         mp = mercadopago.SDK(ACCESS_TOKEN)
-        print(f"✅ SDK de MercadoPago inicializado. Modo: {'SANDBOX' if ACCESS_TOKEN.startswith('TEST') else 'PRODUCCIÓN'}")
+        print(f"SDK de MercadoPago inicializado. Modo: {'SANDBOX' if ACCESS_TOKEN.startswith('TEST') else 'PRODUCCIÓN'}")
     except Exception as e:
-        print(f"❌ Error inicializando MercadoPago SDK: {e}")
+        print(f"Error inicializando MercadoPago SDK: {e}")
 else:
-    print("⚠️ ADVERTENCIA: MERCADOPAGO_ACCESS_TOKEN no configurado. Pagos no funcionarán.")
+    print("ADVERTENCIA: MERCADOPAGO_ACCESS_TOKEN no configurado. Pagos no funcionarán.")
 
 # -------------------------------------------------
-# 1) Crear Preferencia de MercadoPago - VERSIÓN MEJORADA
+# 1) Crear Preferencia de MercadoPago
 # -------------------------------------------------
 @pago_bp.route("/crear-preferencia", methods=['POST'])
 @jwt_required()
@@ -50,7 +54,7 @@ def crear_preferencia():
         
         parcelas_seleccionadas = data.get('parcelas_seleccionadas', [])
         
-        print(f"🔍 Parcelas recibidas: {len(parcelas_seleccionadas)}")
+        print(f"Parcelas recibidas: {len(parcelas_seleccionadas)}")
         
         # Obtener usuario del token JWT
         user_identity = get_jwt_identity()
@@ -103,14 +107,14 @@ def crear_preferencia():
         if not solicitud:
             return jsonify({"error": "No tenés una solicitud activa o aprobada"}), 404
         
-        print(f"🔍 Solicitud encontrada: ID {solicitud.solicitud_id}, Estado: {solicitud.estado_solicitud_id}")
+        print(f"Solicitud encontrada: ID {solicitud.solicitud_id}, Estado: {solicitud.estado_solicitud_id}")
         
         # Obtener rubro
         rubro = Rubro.query.get(solicitud.rubro_id)
         if not rubro:
             return jsonify({"error": "Rubro no encontrado"}), 404
         
-        print(f"🔍 Rubro: {rubro.tipo}, Precio por parcela: {rubro.precio_parcela}")
+        print(f"Rubro: {rubro.tipo}, Precio por parcela: {rubro.precio_parcela}")
         
         # Validar parcelas seleccionadas
         if not parcelas_seleccionadas:
@@ -122,7 +126,7 @@ def crear_preferencia():
         else:
             parcelas_ids = [int(p) for p in parcelas_seleccionadas if p]
         
-        print(f"🔍 IDs de parcelas a verificar: {parcelas_ids}")
+        print(f"IDs de parcelas a verificar: {parcelas_ids}")
         
         if not parcelas_ids:
             return jsonify({"error": "IDs de parcelas inválidos"}), 400
@@ -171,21 +175,19 @@ def crear_preferencia():
         parcelas_count = len(parcelas_ids)
         monto = precio_actual * parcelas_count
         
-        print(f"💰 Cálculo: {parcelas_count} parcelas × ${precio_actual} = ${monto}")
+        print(f"Cálculo: {parcelas_count} parcelas × ${precio_actual} = ${monto}")
         
         if monto <= 0:
             return jsonify({"error": "El monto debe ser mayor a 0"}), 400
         
-        # Verificar si ya existe un pago para esta solicitud
         pago_existente = Pago.query.filter_by(solicitud_id=solicitud.solicitud_id).first()
         
         if pago_existente:
             estado = EstadoPago.query.get(pago_existente.estado_pago_id)
             estado_nombre = estado.tipo if estado else "Desconocido"
             
-            print(f"🔍 Pago existente encontrado: ID {pago_existente.pago_id}, Estado: {estado_nombre}")
+            print(f"Pago existente encontrado: ID {pago_existente.pago_id}, Estado: {estado_nombre}")
             
-            # Solo permitir nuevo pago si el anterior está rechazado o cancelado
             if pago_existente.estado_pago_id in [1, 2]:  # 1=Pendiente, 2=Aprobado
                 return jsonify({
                     "error": "Ya tenés un pago generado",
@@ -195,17 +197,14 @@ def crear_preferencia():
                     "estado_id": pago_existente.estado_pago_id
                 }), 409
         
-        # Configurar URLs
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
         backend_url = os.getenv("BACKEND_URL", "http://localhost:5000")
 
         print(f"🔗 URLs configuradas - Frontend: {frontend_url}, Backend: {backend_url}")
 
-        # Crear preferencia de MercadoPago - VERSIÓN MEJORADA
+
         expiration_date = datetime.now() + timedelta(hours=24)
 
-        # ✅ VERSIÓN MEJORADA PARA DESARROLLO
-        # En tu preference_data, CAMBIA a esto:
 
         preference_data = {
             "items": [
@@ -222,7 +221,7 @@ def crear_preferencia():
                 "email": usuario.email,
                 "name": f"{artesano.nombre}"
             },
-            # ✅ CONFIGURACIÓN PARA PAGO FÁCIL
+            # CONFIGURACIÓN PARA PAGO FÁCIL
             "payment_methods": {
                 "excluded_payment_types": [
                     {"id": "credit_card"},
@@ -230,7 +229,7 @@ def crear_preferencia():
                     {"id": "prepaid_card"}
                 ],
                 # DEJA SOLO efectivo
-                "default_payment_method_id": "pagofacil",  # ← ESTO ES CLAVE
+                "default_payment_method_id": "pagofacil",  
                 "installments": 1
             },
             "back_urls": {
@@ -241,12 +240,10 @@ def crear_preferencia():
             "notification_url": f"{backend_url}/api/v1/pago/webhook",
             "statement_descriptor": "FERIA ARTESANAL",
             "external_reference": f"solicitud_{solicitud.solicitud_id}",
-            # ✅ IMPORTANTE para pagos en efectivo
             "binary_mode": False,  # Debe ser False para pagos en efectivo
             "expires": True,
             "expiration_date_from": datetime.now().isoformat(),
             "expiration_date_to": expiration_date.isoformat(),
-            # ✅ ESPECIFICAR PAGO FÁCIL EXPLÍCITAMENTE
             "payment_type_id": "ticket",
             "payer_costs": [
                 {
@@ -263,24 +260,24 @@ def crear_preferencia():
             ]
         }
 
-        print(f"🎯 Enviando a MercadoPago: {json.dumps(preference_data, indent=2)}")
+        print(f"Enviando a MercadoPago: {json.dumps(preference_data, indent=2)}")
         
         # Crear preferencia
         try:
             preference_response = mp.preference().create(preference_data)
-            print(f"🔍 Respuesta de MP: {json.dumps(preference_response, indent=2)}")
+            print(f"Respuesta de MP: {json.dumps(preference_response, indent=2)}")
         except Exception as mp_error:
-            print(f"❌ Error de MercadoPago SDK: {mp_error}")
+            print(f"Error de MercadoPago SDK: {mp_error}")
             return jsonify({"error": "Error al conectar con MercadoPago", "detalle": str(mp_error)}), 500
         
         if "response" not in preference_response:
-            print(f"❌ Respuesta inesperada de MP: {preference_response}")
+            print(f"Respuesta inesperada de MP: {preference_response}")
             return jsonify({"error": "Respuesta inesperada de MercadoPago"}), 500
         
         pref = preference_response["response"]
         
         if "error" in pref:
-            print(f"❌ Error en preferencia MP: {pref['error']}")
+            print(f"Error en preferencia MP: {pref['error']}")
             return jsonify({"error": f"MercadoPago: {pref.get('message', 'Error desconocido')}"}), 500
         
         # Guardar pago en base de datos
@@ -303,9 +300,8 @@ def crear_preferencia():
         db.session.add(pago)
         db.session.commit()
         
-        print(f"✅ Pago creado en BD: ID {pago.pago_id}, Preference: {pref['id']}")
+        print(f"Pago creado en BD: ID {pago.pago_id}, Preference: {pref['id']}")
         
-        # ✅ Obtener SIEMPRE sandbox_init_point en desarrollo
         init_point = ""
         
         if ACCESS_TOKEN.startswith("TEST-"):  # Modo SANDBOX
@@ -315,14 +311,14 @@ def crear_preferencia():
             # Si no hay sandbox_init_point, construirla manualmente
             if not init_point and "id" in pref:
                 init_point = f"https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id={pref['id']}"
-                print(f"🔧 URL sandbox construida manualmente: {init_point}")
+                print(f"URL sandbox construida manualmente: {init_point}")
         else:  # Modo PRODUCCIÓN
             init_point = pref.get("init_point", "")
         
         # Si aún no tenemos URL, usar cualquier init_point disponible
         if not init_point:
             init_point = pref.get("init_point") or pref.get("sandbox_init_point", "")
-            print(f"⚠️ Usando init_point por defecto: {init_point}")
+            print(f"Usando init_point por defecto: {init_point}")
         
         print(f"🔗 URL de pago a devolver: {init_point}")
         
@@ -334,24 +330,24 @@ def crear_preferencia():
             "monto": monto,
             "parcelas": parcelas_count,
             "pago_id": pago.pago_id,
-            "sandbox": ACCESS_TOKEN.startswith("TEST-"),  # ← ESTE ES IMPORTANTE
+            "sandbox": ACCESS_TOKEN.startswith("TEST-"), 
             "qr_code": pref.get("qr_code", {}).get("base64", "") if pref.get("qr_code") else ""
         }), 200
         
     except SQLAlchemyError as db_error:
         db.session.rollback()
-        print(f"❌ Error de base de datos: {db_error}")
+        print(f"Error de base de datos: {db_error}")
         return jsonify({"error": "Error en la base de datos"}), 500
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error completo: {str(e)}")
+        print(f"Error completo: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Error al crear preferencia: {str(e)}"}), 500
 
 
 # -------------------------------------------------
-# 2) Webhook de MercadoPago - VERSIÓN CORREGIDA
+# 2) Webhook de MercadoPago - 
 # -------------------------------------------------
 @pago_bp.route("/webhook", methods=['POST'])
 def pago_webhook():
@@ -362,7 +358,7 @@ def pago_webhook():
         else:
             data = request.form.to_dict()
         
-        print(f"📨 Webhook recibido: {data}")
+        print(f"Webhook recibido: {data}")
         
         # Extraer payment_id
         payment_id = None
@@ -372,24 +368,24 @@ def pago_webhook():
             payment_id = data.get("id")
         
         if not payment_id:
-            print("❌ No se pudo extraer payment_id del webhook")
+            print("No se pudo extraer payment_id del webhook")
             return jsonify({"status": "ok"}), 200
         
-        print(f"🔍 Procesando payment_id: {payment_id}")
+        print(f" Procesando payment_id: {payment_id}")
         
         # Obtener información del pago desde MercadoPago
         if not mp:
-            print("❌ MercadoPago SDK no inicializado")
+            print(" MercadoPago SDK no inicializado")
             return jsonify({"status": "ok"}), 200
         
         try:
             payment_info = mp.payment().get(payment_id)
         except Exception as mp_error:
-            print(f"❌ Error obteniendo pago de MP: {mp_error}")
+            print(f"Error obteniendo pago de MP: {mp_error}")
             return jsonify({"status": "ok"}), 200
         
         if "response" not in payment_info:
-            print(f"❌ Respuesta inválida de MP: {payment_info}")
+            print(f" Respuesta inválida de MP: {payment_info}")
             return jsonify({"status": "ok"}), 200
         
         payment_data = payment_info["response"]
@@ -397,15 +393,14 @@ def pago_webhook():
         # Buscar pago por preference_id
         preference_id = payment_data.get("preference_id")
         if not preference_id:
-            print("❌ No hay preference_id en la respuesta")
+            print("No hay preference_id en la respuesta")
             return jsonify({"status": "ok"}), 200
         
         pago = Pago.query.filter_by(preference_id=preference_id).first()
         if not pago:
-            print(f"❌ Pago no encontrado para preference_id: {preference_id}")
+            print(f"Pago no encontrado para preference_id: {preference_id}")
             return jsonify({"status": "ok"}), 200
         
-        # ✅ GUARDAR estado anterior para comparación
         estado_anterior = pago.estado_pago_id
         
         # Actualizar estado del pago
@@ -422,15 +417,15 @@ def pago_webhook():
         pago.payment_id = payment_id
         pago.fecha_pago = datetime.now()
         
-        print(f"📊 Pago {payment_id}: {status} (anterior: {estado_anterior}, nuevo: {nuevo_estado})")
+        print(f"Pago {payment_id}: {status} (anterior: {estado_anterior}, nuevo: {nuevo_estado})")
         
         # Si el pago fue aprobado Y antes NO estaba aprobado
         if status == "approved" and estado_anterior != 2:
             # Obtener IDs de parcelas seleccionadas
             parcelas_ids = pago.get_parcelas_seleccionadas()
             
-            print(f"✅ PAGO APROBADO para solicitud {pago.solicitud_id}")
-            print(f"🔍 Asignando parcelas: {parcelas_ids}")
+            print(f" PAGO APROBADO para solicitud {pago.solicitud_id}")
+            print(f" Asignando parcelas: {parcelas_ids}")
             
             # Buscar estado "Pagada" o similar
             estado_pagada = EstadoSolicitud.query.filter_by(nombre='Pagada').first()
@@ -446,9 +441,9 @@ def pago_webhook():
             if solicitud and estado_pagada:
                 estado_anterior_solicitud = solicitud.estado_solicitud_id
                 solicitud.estado_solicitud_id = estado_pagada.estado_solicitud_id
-                print(f"📋 Solicitud {solicitud.solicitud_id}: {estado_anterior_solicitud} → {estado_pagada.estado_solicitud_id} ({estado_pagada.nombre})")
+                print(f" Solicitud {solicitud.solicitud_id}: {estado_anterior_solicitud} → {estado_pagada.estado_solicitud_id} ({estado_pagada.nombre})")
             elif solicitud:
-                print(f"⚠️ No se encontró estado 'Pagada' para actualizar solicitud {solicitud.solicitud_id}")
+                print(f" No se encontró estado 'Pagada' para actualizar solicitud {solicitud.solicitud_id}")
             
             # Crear registros en Solicitud_Parcela para asignar las parcelas
             parcelas_asignadas = 0
@@ -470,19 +465,19 @@ def pago_webhook():
                     )
                     db.session.add(solicitud_parcela)
                     parcelas_asignadas += 1
-                    print(f"✅ Parcela {parcela_id} asignada a solicitud {pago.solicitud_id}")
+                    print(f"Parcela {parcela_id} asignada a solicitud {pago.solicitud_id}")
                 else:
-                    print(f"⚠️ Parcela {parcela_id} ya está asignada a otra solicitud aprobada/pagada")
+                    print(f"Parcela {parcela_id} ya está asignada a otra solicitud aprobada/pagada")
             
-            print(f"📊 Total parcelas asignadas: {parcelas_asignadas}/{len(parcelas_ids)}")
+            print(f"Total parcelas asignadas: {parcelas_asignadas}/{len(parcelas_ids)}")
         
         db.session.commit()
-        print(f"✅ Pago {payment_id} procesado correctamente")
+        print(f"Pago {payment_id} procesado correctamente")
         
         return jsonify({"status": "ok"}), 200
         
     except Exception as e:
-        print(f"❌ Error en webhook: {str(e)}")
+        print(f"Error en webhook: {str(e)}")
         db.session.rollback()
         import traceback
         traceback.print_exc()
@@ -560,16 +555,20 @@ def verificar_estado_pago():
             "fecha_pago": pago.fecha_pago.isoformat() if pago.fecha_pago else None,
             "pago_id": pago.pago_id,
             "solicitud_id": pago.solicitud_id,
-            "parcelas_necesarias": solicitud.parcelas_necesarias
+            "parcelas_necesarias": solicitud.parcelas_necesarias,
+            "comprobante_disponible": pago.estado_pago_id == 2,
+            "numero_comprobante": f"PF-{pago.pago_id:06d}",
+            "fecha_pago_formateada": pago.fecha_pago.strftime("%d/%m/%Y %H:%M") if pago.fecha_pago else None,
+            "puede_descargar_comprobante": pago.estado_pago_id == 2 and pago.fecha_pago is not None
         }), 200
         
     except Exception as e:
-        print(f"❌ Error verificando estado: {e}")
+        print(f"Error verificando estado: {e}")
         return jsonify({"estado": "error"}), 200
 
 
 # -------------------------------------------------
-# 4) Reiniciar pago (para estados rechazados/cancelados) - ADAPTADO
+# 4) Reiniciar pago (para estados rechazados/cancelados) - 
 # -------------------------------------------------
 @pago_bp.route("/reiniciar-pago", methods=['POST'])
 @jwt_required()
@@ -633,12 +632,12 @@ def reiniciar_pago():
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error reiniciando pago: {e}")
+        print(f"Error reiniciando pago: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 # -------------------------------------------------
-# 5) Cancelar pago pendiente - ADAPTADO
+# 5) Cancelar pago pendiente - 
 # -------------------------------------------------
 @pago_bp.route("/cancelar-pago-actual", methods=['POST'])
 @jwt_required()
@@ -681,7 +680,6 @@ def cancelar_pago_actual():
         if not pago:
             return jsonify({"error": "No hay pago para cancelar"}), 404
         
-        # Solo permitir cancelar si está pendiente
         if pago.estado_pago_id != 1:  # 1 = Pendiente
             estado = EstadoPago.query.get(pago.estado_pago_id)
             estado_nombre = estado.tipo if estado else "Desconocido"
@@ -691,13 +689,11 @@ def cancelar_pago_actual():
                 "estado_actual": pago.estado_pago_id
             }), 400
         
-        # Cambiar estado a cancelado
         pago.estado_pago_id = 4  # Cancelado
         pago.fecha_pago = datetime.now()
         
-        # IMPORTANTE: NO eliminar registros de Solicitud_Parcela porque el pago está pendiente
-        # Las parcelas aún no han sido asignadas formalmente
-        print(f"⚠️ Pago {pago.pago_id} cancelado. No se eliminan registros de Solicitud_Parcela porque el pago estaba pendiente.")
+
+        print(f"Pago {pago.pago_id} cancelado. No se eliminan registros de Solicitud_Parcela porque el pago estaba pendiente.")
         
         db.session.commit()
         
@@ -711,12 +707,12 @@ def cancelar_pago_actual():
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error cancelando pago: {e}")
+        print(f"Error cancelando pago: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 # -------------------------------------------------
-# 6) Simular webhook para desarrollo - ADAPTADO
+# 6) Simular webhook para desarrollo - 
 # -------------------------------------------------
 @pago_bp.route("/simular-webhook/<string:preference_id>", methods=['POST'])
 def simular_webhook(preference_id):
@@ -754,11 +750,11 @@ def simular_webhook(preference_id):
         solicitud = Solicitud.query.get(pago.solicitud_id)
         if solicitud and estado_pagada:
             solicitud.estado_solicitud_id = estado_pagada.estado_solicitud_id
-            print(f"✅ Solicitud {solicitud.solicitud_id} marcada como {estado_pagada.nombre}")
+            print(f"Solicitud {solicitud.solicitud_id} marcada como {estado_pagada.nombre}")
         
         # Asignar parcelas usando tu sistema existente (Solicitud_Parcela)
         parcelas_ids = pago.get_parcelas_seleccionadas()
-        print(f"🔍 Asignando parcelas: {parcelas_ids}")
+        print(f"Asignando parcelas: {parcelas_ids}")
         
         parcelas_asignadas = []
         for parcela_id in parcelas_ids:
@@ -774,9 +770,9 @@ def simular_webhook(preference_id):
                 )
                 db.session.add(solicitud_parcela)
                 parcelas_asignadas.append(parcela_id)
-                print(f"✅ Parcela {parcela_id} asignada a solicitud {pago.solicitud_id}")
+                print(f"Parcela {parcela_id} asignada a solicitud {pago.solicitud_id}")
             else:
-                print(f"⚠️ Parcela {parcela_id} ya estaba asignada a otra solicitud")
+                print(f"Parcela {parcela_id} ya estaba asignada a otra solicitud")
     
     db.session.commit()
     
@@ -839,20 +835,20 @@ def aprobar_pago_facil(preference_id):
                 parcela_id=parcela_id
             )
             db.session.add(solicitud_parcela)
-            print(f"✅ Parcela {parcela_id} asignada")
+            print(f"Parcela {parcela_id} asignada")
         
         db.session.commit()
         
         return jsonify({
             "success": True,
-            "message": "✅ Pago Fácil aprobado simuladamente",
+            "message": "Pago Fácil aprobado simuladamente",
             "pago_id": pago.pago_id,
             "parcelas_asignadas": parcelas_ids
         }), 200
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
     
 # -------------------------------------------------
@@ -862,22 +858,22 @@ def aprobar_pago_facil(preference_id):
 def auto_aprobar_pago_facil(preference_id):
     """Endpoint público para auto-aprobar pagos Pago Fácil en sandbox"""
     try:
-        print(f"🔄 Intentando auto-aprobar pago con preference_id: {preference_id}")
+        print(f"Intentando auto-aprobar pago con preference_id: {preference_id}")
         
         pago = Pago.query.filter_by(preference_id=preference_id).first()
         if not pago:
-            print(f"❌ Pago no encontrado para preference_id: {preference_id}")
+            print(f"Pago no encontrado para preference_id: {preference_id}")
             return jsonify({"error": "Pago no encontrado"}), 404
         
         # Verificar que esté pendiente
         if pago.estado_pago_id != 1:
-            print(f"ℹ️ Pago {pago.pago_id} ya tiene estado: {pago.estado_pago_id}")
+            print(f"Pago {pago.pago_id} ya tiene estado: {pago.estado_pago_id}")
             return jsonify({
                 "message": f"El pago ya está en estado: {pago.estado_pago_id}",
                 "estado_actual": pago.estado_pago_id
             }), 200
         
-        print(f"🎯 Auto-aprobando pago Pago Fácil: {pago.pago_id}, Monto: ${pago.monto}")
+        print(f"Auto-aprobando pago Pago Fácil: {pago.pago_id}, Monto: ${pago.monto}")
         
         # MARCAR COMO APROBADO
         pago.estado_pago_id = 2  # Aprobado
@@ -901,9 +897,9 @@ def auto_aprobar_pago_facil(preference_id):
                 )
                 db.session.add(solicitud_parcela)
                 parcelas_asignadas.append(parcela_id)
-                print(f"✅ Parcela {parcela_id} asignada")
+                print(f"Parcela {parcela_id} asignada")
             else:
-                print(f"⚠️ Parcela {parcela_id} ya estaba asignada")
+                print(f"Parcela {parcela_id} ya estaba asignada")
         
         # Actualizar estado de la solicitud si existe estado "Pagada"
         estado_pagada = EstadoSolicitud.query.filter_by(nombre='Pagada').first()
@@ -914,25 +910,25 @@ def auto_aprobar_pago_facil(preference_id):
             solicitud = Solicitud.query.get(pago.solicitud_id)
             if solicitud:
                 solicitud.estado_solicitud_id = estado_pagada.estado_solicitud_id
-                print(f"📋 Solicitud {solicitud.solicitud_id} marcada como {estado_pagada.nombre}")
+                print(f"Solicitud {solicitud.solicitud_id} marcada como {estado_pagada.nombre}")
         
         db.session.commit()
         
-        print(f"✅ Pago {pago.pago_id} auto-aprobado exitosamente")
+        print(f"Pago {pago.pago_id} auto-aprobado exitosamente")
         
         return jsonify({
             "success": True,
-            "message": "✅ Pago Fácil auto-aprobado exitosamente",
+            "message": "Pago Fácil auto-aprobado exitosamente",
             "pago_id": pago.pago_id,
             "estado": "Aprobado",
             "parcelas_asignadas": parcelas_asignadas,
             "monto": float(pago.monto),
-            "referencia": preference_id[-8:]  # Últimos 8 chars como referencia
+            "referencia": preference_id[-8:]  
         }), 200
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error auto-aprobando pago: {e}")
+        print(f"Error auto-aprobando pago: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -949,7 +945,6 @@ def check_and_auto_approve(preference_id):
         if not pago:
             return jsonify({"error": "Pago no encontrado"}), 404
         
-        # Si ya está aprobado, devolver info
         if pago.estado_pago_id == 2:
             return jsonify({
                 "status": "already_approved",
@@ -958,15 +953,13 @@ def check_and_auto_approve(preference_id):
                 "fecha_pago": pago.fecha_pago.isoformat() if pago.fecha_pago else None
             }), 200
         
-        # Si está pendiente y tiene más de 1 minuto, auto-aprobar
         tiempo_creacion = pago.fecha_creacion
         tiempo_actual = datetime.now()
         diferencia = tiempo_actual - tiempo_creacion
         
-        if diferencia.total_seconds() > 60:  # Más de 1 minuto
-            print(f"⏰ Pago pendiente por {diferencia.total_seconds():.0f} segundos - auto-aprobando")
+        if diferencia.total_seconds() > 60: 
+            print(f"Pago pendiente por {diferencia.total_seconds():.0f} segundos - auto-aprobando")
             
-            # Llamar al endpoint de auto-aprobación
             import requests
             auto_approve_url = f"http://localhost:5000/api/v1/pago/auto-aprobar-pago-facil/{preference_id}"
             
@@ -975,13 +968,12 @@ def check_and_auto_approve(preference_id):
                 if response.status_code == 200:
                     return jsonify({
                         "status": "auto_approved",
-                        "message": "✅ Pago auto-aprobado exitosamente",
+                        "message": "Pago auto-aprobado exitosamente",
                         "pago_id": pago.pago_id
                     }), 200
             except Exception as api_error:
-                print(f"❌ Error llamando a auto-aprobar: {api_error}")
-        
-        # Si aún no pasó 1 minuto, devolver tiempo restante
+                print(f"Error llamando a auto-aprobar: {api_error}")
+    
         segundos_restantes = 60 - diferencia.total_seconds()
         if segundos_restantes < 0:
             segundos_restantes = 0
@@ -995,6 +987,105 @@ def check_and_auto_approve(preference_id):
         }), 200
         
     except Exception as e:
-        print(f"❌ Error en check-and-auto-approve: {e}")
+        print(f"Error en check-and-auto-approve: {e}")
         return jsonify({"error": str(e)}), 500
     
+@pago_bp.route("/descargar-comprobante/<int:pago_id>", methods=['GET'])
+@jwt_required()
+def descargar_comprobante_pdf(pago_id):
+    """Genera y descarga un comprobante PDF del pago"""
+    try:
+        # Obtener usuario del token
+        user_identity = get_jwt_identity()
+        
+        if isinstance(user_identity, dict):
+            usuario_id = user_identity.get('id')
+        elif isinstance(user_identity, str):
+            if '_' in user_identity:
+                usuario_id = int(user_identity.split('_')[1])
+            else:
+                usuario_id = int(user_identity)
+        else:
+            usuario_id = user_identity
+        
+        # Buscar usuario y verificar que sea artesano
+        usuario = Usuario.query.get(usuario_id)
+        if not usuario or usuario.rol_id != 1:
+            return jsonify({"error": "Acceso no autorizado"}), 403
+        
+        # Buscar artesano
+        artesano = Artesano.query.filter_by(usuario_id=usuario_id).first()
+        if not artesano:
+            return jsonify({"error": "Artesano no encontrado"}), 404
+        
+        # Buscar pago
+        pago = Pago.query.get(pago_id)
+        if not pago:
+            return jsonify({"error": "Pago no encontrado"}), 404
+        
+        # Verificar que el pago pertenezca al artesano
+        solicitud = Solicitud.query.get(pago.solicitud_id)
+        if not solicitud or solicitud.artesano_id != artesano.artesano_id:
+            return jsonify({"error": "Este pago no pertenece a tu cuenta"}), 403
+        
+        # Verificar que el pago esté aprobado
+        if pago.estado_pago_id != 2:
+            return jsonify({"error": "Solo se pueden descargar comprobantes de pagos aprobados"}), 400
+        
+        # Obtener información adicional
+        rubro = Rubro.query.get(solicitud.rubro_id)
+        
+        # Obtener parcelas asignadas
+        solicitudes_parcelas = SolicitudParcela.query.filter_by(
+            solicitud_id=solicitud.solicitud_id
+        ).all()
+        
+        parcelas = []
+        for sp in solicitudes_parcelas:
+            parcela = Parcela.query.get(sp.parcela_id)
+            if parcela:
+                parcelas.append({
+                    "parcela_id": parcela.parcela_id,
+                    "fila": parcela.fila,
+                    "columna": parcela.columna
+                })
+        
+        print(f"Generando comprobante para pago {pago_id}...")
+        
+        # Generar PDF
+        pdf_path = generar_comprobante_pago(
+            pago=pago,
+            solicitud=solicitud,
+            artesano=artesano,
+            usuario=usuario,
+            rubro=rubro,
+            parcelas=parcelas
+        )
+        
+        # Nombre del archivo
+        fecha = datetime.now().strftime("%Y%m%d")
+        filename = f"comprobante_pago_{pago.pago_id}_{fecha}.pdf"
+        
+        # Enviar archivo
+        response = send_file(
+            pdf_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+        
+        # Configurar headers para descarga
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        
+        print(f"Comprobante generado: {filename}")
+        
+        # El archivo temporal se eliminará automáticamente después de enviarlo
+        return response
+        
+    except Exception as e:
+        print(f"Error generando comprobante: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error al generar comprobante: {str(e)}"}), 500

@@ -5601,3 +5601,80 @@ h3 {
   transform: none;
   box-shadow: none;
 }
+
+/* App.css - Añade estos estilos */
+
+/* Sección de comprobante */
+.seccion-comprobante {
+  margin-top: 20px;
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Tarjeta de comprobante */
+.seccion-comprobante .card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.seccion-comprobante .card-header {
+  background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+  color: white;
+  border: none;
+  padding: 15px 20px;
+}
+
+/* Botón de descarga mejorado */
+.btn-descargar-pdf {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-descargar-pdf:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+}
+
+.btn-descargar-pdf:active {
+  transform: translateY(0);
+}
+
+/* Icono animado */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.seccion-comprobante .bi-file-earmark-pdf {
+  animation: bounce 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .seccion-comprobante .card {
+    margin: 0 -15px;
+    border-radius: 0;
+  }
+}

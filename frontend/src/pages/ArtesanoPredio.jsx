@@ -18,7 +18,99 @@ const ArtesanoPredio = () => {
 
   // ================ FUNCIONES NUEVAS/MODIFICADAS ================
   
+  // 1. Función para descargar el comprobante PDF
+  const descargarComprobante = async (pagoId) => {
+    if (!pagoId) {
+      alert("No hay información de pago para descargar");
+      return;
+    }
 
+    try {
+      console.log(`📥 Descargando comprobante para pago ID: ${pagoId}`);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/pago/descargar-comprobante/${pagoId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+
+      // Crear blob y descargar
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      // Obtener nombre del archivo del header o crear uno
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `comprobante_pago_${pagoId}.pdf`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Liberar URL
+      window.URL.revokeObjectURL(url);
+      
+      console.log("✅ Comprobante descargado exitosamente");
+      
+    } catch (error) {
+      console.error("❌ Error descargando comprobante:", error);
+      alert(`Error al descargar comprobante: ${error.message}`);
+    }
+  };
+
+  // 2. Función para verificar si se puede descargar comprobante
+  const puedeDescargarComprobante = () => {
+    return pagoEstado && 
+          pagoEstado.estado_pago_id === 2 && // Aprobado
+          pagoEstado.pago_id;
+  };
+
+  // 3. Función para previsualizar PDF (opcional)
+  const previsualizarComprobante = async (pagoId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/pago/descargar-comprobante/${pagoId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Abrir en nueva pestaña
+      window.open(url, '_blank');
+      
+    } catch (error) {
+      console.error("❌ Error previsualizando:", error);
+      alert("No se pudo previsualizar el comprobante");
+    }
+  };
   // 1. FUNCIÓN SIMPLIFICADA PARA INICIAR PAGO
   const iniciarPago = async () => {
     console.log("Iniciando proceso de pago...");
@@ -1024,6 +1116,7 @@ const ArtesanoPredio = () => {
       
                         </div>
                       )}
+                      
 
                       {infoValidacion.pago_aprobado && (
                         <div className="pago-estado-alerta aprobado">
@@ -1046,6 +1139,38 @@ const ArtesanoPredio = () => {
                         No podes seleccionar nuevas parcelas porque ya tenes
                         asignadas.
                       </p>
+                    </div>
+                  )}
+                  {/* SECCIÓN DE COMPROBANTE PDF  */}
+                  {pagoEstado && pagoEstado.estado_pago_id === 2 && (
+                    <div className="seccion-comprobante">
+                      <div className="d-grid gap-3"> {/* Cambiado de gap-2 a gap-3 */}
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => descargarComprobante(pagoEstado.pago_id)}
+                          style={{ 
+                            backgroundColor: '#905e29ff', 
+                            borderColor: '#905e29ff',
+                            marginBottom: '8px' 
+                          }}
+                        >
+                          <i className="bi bi-download me-2"></i>
+                          Descargar Comprobante PDF
+                        </button>
+                        
+                        <button
+                          className="btn btn-outline-success"
+                          onClick={() => previsualizarComprobante(pagoEstado.pago_id)}
+                          style={{ 
+                            backgroundColor: '#553f27ff', 
+                            borderColor: '#553f27ff',
+                            marginTop: '8px' 
+                          }}
+                        >
+                          <i className="bi bi-eye me-2"></i>
+                          Ver Comprobante
+                        </button>
+                      </div>
                     </div>
                   )}
 
