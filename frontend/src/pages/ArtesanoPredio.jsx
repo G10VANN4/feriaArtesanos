@@ -12,41 +12,37 @@ const ArtesanoPredio = () => {
   const [error, setError] = useState(null);
   const [parcelasMapa, setParcelasMapa] = useState([]);
   const [procesandoPago, setProcesandoPago] = useState(false);
+  const [pagoEstado, setPagoEstado] = useState(null); // Nuevo estado para guardar info del pago
 
   const API_BASE_URL = "http://localhost:5000";
 
+  // ================ FUNCIONES NUEVAS/MODIFICADAS ================
+  
+
+  // 1. FUNCIÓN SIMPLIFICADA PARA INICIAR PAGO
   const iniciarPago = async () => {
-    console.log("🔍 DEBUG - Estado actual:");
-    console.log(" - infoValidacion:", infoValidacion);
-    console.log(" - parcelasSeleccionadas:", parcelasSeleccionadas.length);
-    console.log(" - esSeleccionCorrecta:", esSeleccionCorrecta());
-    console.log(
-      " - puede_solicitar_parcelas:",
-      infoValidacion?.puede_solicitar_parcelas
-    );
+    console.log("Iniciando proceso de pago...");
+    
+    if (!infoValidacion?.puede_solicitar_parcelas) {
+      alert(infoValidacion?.motivo || "No puedes solicitar parcelas en este momento");
+      return;
+    }
+
+    if (parcelasSeleccionadas.length === 0) {
+      alert("Debes seleccionar al menos una parcela antes de pagar");
+      return;
+    }
+
+    if (!esSeleccionCorrecta()) {
+      alert(`Debes seleccionar exactamente ${parcelasNecesarias} parcela(s)`);
+      return;
+    }
+
     setProcesandoPago(true);
+    
     try {
-      // ✅ VERIFICAR ANTES DE PAGAR
-      if (!infoValidacion?.puede_solicitar_parcelas) {
-        alert(
-          infoValidacion?.motivo ||
-            "No puedes solicitar parcelas en este momento"
-        );
-        return;
-      }
-
-      if (parcelasSeleccionadas.length === 0) {
-        alert("Debes seleccionar al menos una parcela antes de pagar");
-        return;
-      }
-
-      if (!esSeleccionCorrecta()) {
-        alert(`Debes seleccionar exactamente ${parcelasNecesarias} parcela(s)`);
-        return;
-      }
-
-      console.log("🔄 Iniciando proceso de pago...");
-      console.log("📦 Parcelas a enviar:", parcelasSeleccionadas);
+      const parcelasIds = parcelasSeleccionadas.map(p => p.parcela_id);
+      console.log("Enviando parcelas:", parcelasIds);
 
       const res = await fetch(`${API_BASE_URL}/api/v1/pago/crear-preferencia`, {
         method: "POST",
@@ -55,297 +51,138 @@ const ArtesanoPredio = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          parcelas_seleccionadas: parcelasSeleccionadas,
+          parcelas_seleccionadas: parcelasIds,
         }),
       });
 
-      console.log("📡 Response status:", res.status);
-      console.log("📡 Response ok:", res.ok);
-
-      // OBTENER LA RESPUESTA COMPLETA SIN IMPORTAR EL STATUS
       let responseData;
       try {
         responseData = await res.json();
       } catch (jsonError) {
-        console.error("❌ Error parseando JSON:", jsonError);
         throw new Error("Respuesta inválida del servidor");
       }
 
-      console.log("📡 Response data COMPLETA:", responseData);
-
       if (!res.ok) {
-        console.error("❌ Error del backend:", responseData);
-        if (
-          responseData.error &&
-          responseData.error.includes("Ya tenés un pago generado")
-        ) {
-          // Verificar si el pago es cancelable (estado pendiente)
-          if (responseData.estado_actual === "Pendiente") {
-            const cancelar = confirm(
-              `Ya tienes un pago en estado: ${responseData.estado_actual}. ¿Quieres cancelarlo automáticamente y crear uno nuevo?`
-            );
-
-            if (cancelar) {
-              const cancelado = await cancelarPagoExistente();
-              if (cancelado) {
-                // Reintentar el pago después de cancelar
-                iniciarPago();
-                return;
-              }
-            }
-          } else {
-            alert(
-              `No puedes crear un nuevo pago porque tienes uno en estado: ${responseData.estado_actual}`
-            );
-          }
-          return;
-        }
-
         throw new Error(responseData.error || `Error ${res.status}`);
       }
 
-      console.log("✅ Preferencia creada:", responseData);
+      console.log("Preferencia creada:", responseData);
 
-      // Redirigir a MercadoPago
-      if (responseData.preference_id) {
-        console.log("🔑 Preference ID recibido:", responseData.preference_id);
-        console.log("💰 Monto:", responseData.monto);
-
-        try {
-          // 1. Cargar SDK
-          console.log("🔄 Cargando SDK de MercadoPago...");
-          const MercadoPagoSDK = await inicializarMercadoPago();
-
-          if (!MercadoPagoSDK) {
-            throw new Error("SDK no se pudo cargar después de 10 segundos");
-          }
-
-          console.log("✅ SDK cargado correctamente");
-
-          // 2. INGRESA TU PUBLIC KEY REAL AQUÍ (OBLIGATORIO)
-          const publicKey = "TEST-TU-PUBLIC-KEY-REAL-AQUÍ"; // ⚠️ CAMBIAR ESTO
-
-          if (!publicKey || publicKey.includes("TU-PUBLIC-KEY")) {
-            throw new Error(
-              "❌ Public Key no configurada. Usa la tuya de MercadoPago"
-            );
-          }
-
-          console.log(
-            "🔑 Public Key configurada:",
-            publicKey.substring(0, 10) + "..."
-          );
-
-          // 3. Inicializar
-          const mp = new MercadoPagoSDK(publicKey, {
-            locale: "es-AR",
-          });
-
-          console.log(
-            "🎯 Inicializando checkout con preference_id:",
-            responseData.preference_id
-          );
-
-          // 4. Crear checkout con manejo de errores
-          mp.checkout({
-            preference: {
-              id: responseData.preference_id,
-            },
-            render: {
-              container: ".cho-container",
-              label: "Pagar",
-              type: "modal",
-            },
-            theme: {
-              elementsColor: "#007bff",
-              headerColor: "#007bff",
-            },
-          });
-
-          console.log("✅ Checkout inicializado");
-
-          // 5. Mostrar modal
-          const container = document.querySelector(".cho-container");
-          if (container) {
-            container.style.display = "block";
-            console.log("🖥️ Modal mostrado");
-          }
-        } catch (error) {
-          console.error("❌ ERROR CRÍTICO en MercadoPago:", error);
-          console.error("Stack trace:", error.stack);
-
-          // Fallback automático
-          console.log("🔄 Intentando fallback con init_point...");
-          if (responseData.sandbox_init_point) {
-            console.log(
-              "🔗 Usando sandbox_init_point:",
-              responseData.sandbox_init_point
-            );
-            window.open(
-              responseData.sandbox_init_point,
-              "_blank",
-              "noopener,noreferrer"
-            );
-          } else if (responseData.init_point) {
-            console.log("🔗 Usando init_point:", responseData.init_point);
-            window.open(
-              responseData.init_point,
-              "_blank",
-              "noopener,noreferrer"
-            );
-          } else {
-            alert(
-              `Error: ${error.message}\n\nNo hay enlace de respaldo. Revisa la consola.`
-            );
-          }
+      let redirectUrl = responseData.init_point;
+      
+      console.log("URL recibida del backend:", redirectUrl);
+      console.log("Flag sandbox:", responseData.sandbox);
+      
+      // PASO 1: Si el backend dice que es sandbox PERO la URL NO es sandbox
+      if (responseData.sandbox && redirectUrl && !redirectUrl.includes('sandbox.')) {
+        console.log("Convirtiendo URL producción → sandbox");
+        
+        // Convertir SOLO si NO es ya sandbox
+        if (redirectUrl.includes('www.mercadopago.com.ar')) {
+          redirectUrl = redirectUrl.replace('www.mercadopago.com.ar', 'sandbox.mercadopago.com.ar');
+        } else if (redirectUrl.includes('mercadopago.com.ar')) {
+          redirectUrl = redirectUrl.replace('mercadopago.com.ar', 'sandbox.mercadopago.com.ar');
         }
-      } else {
-        console.error("❌ No hay preference_id en la respuesta:", responseData);
-        alert(
-          "El servidor no devolvió un ID de preferencia. Revisa el backend."
-        );
       }
+      
+      // PASO 2: Si por error ya tenía "sandbox.sandbox", corregir
+      if (redirectUrl && redirectUrl.includes('sandbox.sandbox')) {
+        console.log("Corrigiendo doble sandbox");
+        redirectUrl = redirectUrl.replace('sandbox.sandbox', 'sandbox');
+      }
+      
+      // PASO 3: Si no hay URL pero tenemos preference_id, construirla
+      if (!redirectUrl && responseData.preference_id) {
+        console.log("Construyendo URL desde preference_id");
+        redirectUrl = `https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id=${responseData.preference_id}`;
+      }
+      
+      console.log("URL final para redirección:", redirectUrl);
+      
+      if (!redirectUrl || !redirectUrl.startsWith('http')) {
+        throw new Error("URL de pago inválida recibida: " + redirectUrl);
+      }
+      
+      // ABRIR MERCADO PAGO SANDBOX
+      console.log("Redirigiendo a MercadoPago Sandbox...");
+      
+      // Abrir en nueva pestaña con configuración segura
+      const mpWindow = window.open(
+        redirectUrl, 
+        '_blank',
+        'noopener,noreferrer,width=800,height=600'
+      );
+      
+      if (!mpWindow) {
+        // Si el navegador bloqueó la ventana emergente
+        const shouldCopy = confirm(
+          "El navegador bloqueó la ventana emergente.\n\n" +
+          "¿Quieres copiar la URL de MercadoPago para abrirla manualmente?\n\n" +
+          "URL: " + redirectUrl
+        );
+        
+        if (shouldCopy) {
+          navigator.clipboard.writeText(redirectUrl)
+            .then(() => alert("URL copiada al portapapeles. Pégalo en una nueva pestaña."))
+            .catch(() => {
+              // Fallback para navegadores antiguos
+              const textarea = document.createElement('textarea');
+              textarea.value = redirectUrl;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+              alert("URL copiada. Pégalo en una nueva pestaña.");
+            });
+        }
+      }
+      
     } catch (err) {
-      console.error("❌ Error en pago:", err);
+      console.error("Error en pago:", err);
       alert("Error iniciando pago: " + err.message);
     } finally {
       setProcesandoPago(false);
     }
   };
 
-  const cancelarPagoExistente = async () => {
+  // 2. NUEVA FUNCIÓN: SIMULAR PAGO (para desarrollo sin webhook)
+  const simularPago = async (preferenceId) => {
+    if (!preferenceId) {
+      alert("No hay preference_id para simular");
+      return;
+    }
+
+    const estado = prompt("¿Qué estado quieres simular?\n(approved, pending, rejected, cancelled)", "approved");
+    
+    if (!estado) return;
+
     try {
-      setProcesandoPago(true);
-      // Verificar primero si podemos cancelar/reiniciar
-      const resEstado = await fetch(`${API_BASE_URL}/api/v1/pago/estado`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/pago/simular-webhook/${preferenceId}`, {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem("token")}`
         },
+        body: JSON.stringify({ estado: estado })
       });
 
-      if (resEstado.ok) {
-        const estadoPago = await resEstado.json();
-        console.log("Estado actual del pago:", estadoPago);
-
-        // Si el pago está rechazado o cancelado, usar el endpoint de reinicio
-        if (estadoPago.estado_id === 3 || estadoPago.estado_id === 4) {
-          const resReinicio = await fetch(
-            `${API_BASE_URL}/api/v1/pago/reiniciar-pago`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          const resultadoReinicio = await resReinicio.json();
-
-          if (resReinicio.ok) {
-            alert(
-              "✅ Pago anterior reiniciado exitosamente. Ahora puedes crear un nuevo pago."
-            );
-            console.log("Pago reiniciado:", resultadoReinicio);
-            await cargarInfoValidacion();
-            return true;
-          } else {
-            alert("❌ Error reiniciando pago: " + resultadoReinicio.error);
-            return false;
-          }
-        }
-        // Si el pago está pendiente, usar el endpoint de cancelación normal
-        else if (estadoPago.estado_id === 1) {
-          const resCancelar = await fetch(
-            `${API_BASE_URL}/api/v1/pago/cancelar-pago-actual`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          const resultadoCancelar = await resCancelar.json();
-
-          if (resCancelar.ok) {
-            alert(
-              "✅ Pago anterior cancelado exitosamente. Ahora puedes crear un nuevo pago."
-            );
-            console.log("Pago cancelado:", resultadoCancelar);
-            await cargarInfoValidacion();
-            return true;
-          } else {
-            alert("❌ Error cancelando pago: " + resultadoCancelar.error);
-            return false;
-          }
-        } else {
-          alert(
-            `No se puede cancelar/reiniciar un pago en estado: ${estadoPago.estado}`
-          );
-          return false;
-        }
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`Pago simulado como: ${estado}\n${result.message}`);
+        // Recargar información
+        await cargarInfoValidacion();
       } else {
-        alert("❌ No se pudo verificar el estado del pago");
-        return false;
+        throw new Error(result.error || "Error simulando pago");
       }
-    } catch (err) {
-      console.error("❌ Error:", err);
-      alert("Error: " + err.message);
-      return false;
-    } finally {
-      setProcesandoPago(false);
+    } catch (error) {
+      console.error("Error simulando pago:", error);
+      alert(`Error: ${error.message}`);
     }
   };
 
-  const inicializarMercadoPago = async () => {
-    return new Promise((resolve) => {
-      // Si ya está cargado, lo usamos
-      if (window.MercadoPago) {
-        console.log("✅ SDK ya estaba cargado");
-        resolve(window.MercadoPago);
-        return;
-      }
 
-      console.log("⬇️ Descargando SDK desde https://sdk.mercadopago.com/js/v2");
-
-      // Cargar el SDK
-      const script = document.createElement("script");
-      script.src = "https://sdk.mercadopago.com/js/v2";
-      script.onload = () => {
-        console.log("✅ SDK de MercadoPago cargado correctamente");
-        if (window.MercadoPago) {
-          resolve(window.MercadoPago);
-        } else {
-          reject(
-            new Error("MercadoPago no está en window después de cargar script")
-          );
-        }
-      };
-
-      script.onerror = (error) => {
-        console.error("❌ Error cargando SDK de MercadoPago:", error);
-        reject(new Error("No se pudo cargar el SDK de MercadoPago"));
-      };
-
-      script.onabort = () => {
-        console.error("❌ Carga del SDK abortada");
-        reject(new Error("Carga del SDK abortada"));
-      };
-
-      // Timeout después de 10 segundos
-      setTimeout(() => {
-        if (!window.MercadoPago) {
-          reject(new Error("Timeout cargando SDK de MercadoPago"));
-        }
-      }, 10000);
-
-      document.body.appendChild(script);
-      console.log("📝 Script agregado al DOM");
-    });
-  };
-
+  // 6. FUNCIÓN MODIFICADA: CARGAR INFORMACIÓN DE VALIDACIÓN (con estado de pago)
   const cargarInfoValidacion = async () => {
     try {
       setLoading(true);
@@ -354,6 +191,7 @@ const ArtesanoPredio = () => {
 
       console.log("Cargando información de validación para el mapa...");
 
+      // Cargar solicitud
       const responseSolicitud = await fetch(`${API_BASE_URL}/solicitudes`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -361,21 +199,15 @@ const ArtesanoPredio = () => {
         },
       });
 
-      console.log("Respuesta solicitud:", responseSolicitud.status);
-
       if (!responseSolicitud.ok) {
-        throw new Error(
-          `Error ${responseSolicitud.status} al cargar solicitud`
-        );
+        throw new Error(`Error ${responseSolicitud.status} al cargar solicitud`);
       }
 
       const dataSolicitud = await responseSolicitud.json();
       console.log("Datos de solicitud recibidos:", dataSolicitud);
 
       if (dataSolicitud.solicitud === null) {
-        setError(
-          dataSolicitud.msg || "No tienes una solicitud activa para este año."
-        );
+        setError(dataSolicitud.msg || "No tienes una solicitud activa para este año.");
         setInfoValidacion({
           puede_solicitar_parcelas: false,
           motivo: "No tienes una solicitud activa",
@@ -386,7 +218,7 @@ const ArtesanoPredio = () => {
         return;
       }
 
-      // Obtener estado del pago
+      // Obtener estado del pago - AÑADE manejo de estado "sin_pago"
       const resPago = await fetch(`${API_BASE_URL}/api/v1/pago/estado`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -396,46 +228,56 @@ const ArtesanoPredio = () => {
       let pagoEstado = null;
       let pagoPendiente = false;
       let pagoAprobado = false;
-      let pagoCancelable = false;
+      let pagoRechazado = false;
+      let pagoCancelado = false;
 
       if (resPago.ok) {
-        pagoEstado = await resPago.json(); // <-- AQUÍ guardamos los datos reales
+        pagoEstado = await resPago.json();
         console.log("Estado del pago:", pagoEstado);
-        pagoPendiente = pagoEstado.estado_id === 1; // Pendiente
-        pagoAprobado = pagoEstado.estado_id === 2; // Aprobado
-        pagoCancelable = pagoEstado.estado_id === 1; // Solo pendientes se pueden cancelar
-      } else {
-        console.warn("No se pudo obtener el estado del pago");
+        
+        // Guardar estado del pago en el estado local
+        setPagoEstado(pagoEstado);
+        
+        // Verificar si es respuesta de "sin_pago"
+        if (pagoEstado.estado === "sin_pago" || pagoEstado.estado_pago === "sin_pago") {
+          // No hay pago, todos los estados son false
+          console.log("No hay pago registrado para esta solicitud");
+        } else {
+          // Hay pago, leer los estados
+          pagoPendiente = pagoEstado.estado_pago_id === 1; // Pendiente
+          pagoAprobado = pagoEstado.estado_pago_id === 2; // Aprobado
+          pagoRechazado = pagoEstado.estado_pago_id === 3; // Rechazado
+          pagoCancelado = pagoEstado.estado_pago_id === 4; // Cancelado
+        }
       }
 
       const solicitud = dataSolicitud.solicitud;
       const rubroInfo = await cargarInfoRubroActual(solicitud.rubro_id);
       const infoParcelas = await verificarParcelaAsignada();
-      const estadoInfo = await verificarEstadoSolicitud(
-        solicitud.estado_solicitud_id
-      );
+      const estadoInfo = await verificarEstadoSolicitud(solicitud.estado_solicitud_id);
 
-      const puedeSolicitar =
+      // LÓGICA MODIFICADA: Permitir pago solo si puede_pagar es true
+      const puedeSolicitar = 
         estadoInfo.aprobada &&
         !infoParcelas.solicitudCompletada &&
-        infoParcelas.totalAsignadas < solicitud.parcelas_necesarias;
-      !pagoPendiente && // No puede solicitar si tiene pago pendiente
-        !pagoAprobado; // No puede solicitar si ya tiene pago aprobado
+        infoParcelas.totalAsignadas < solicitud.parcelas_necesarias &&
+        (pagoEstado?.puede_pagar !== false); // <-- USA el campo puede_pagar del backend
 
       let motivo = "";
       if (!estadoInfo.aprobada) {
         motivo = `La solicitud está ${estadoInfo.nombre}`;
       } else if (pagoPendiente) {
-        motivo =
-          "Tienes un pago pendiente. Debes cancelarlo para crear uno nuevo.";
+        motivo = "Tienes un pago pendiente. Debes cancelarlo para crear uno nuevo.";
       } else if (pagoAprobado) {
         motivo = "Ya tienes un pago aprobado. No puedes crear uno nuevo.";
       } else if (infoParcelas.solicitudCompletada) {
         motivo = `Ya completaste las ${solicitud.parcelas_necesarias} parcelas necesarias`;
       } else if (infoParcelas.totalAsignadas >= solicitud.parcelas_necesarias) {
         motivo = `Ya tienes ${infoParcelas.totalAsignadas} de ${solicitud.parcelas_necesarias} parcelas asignadas`;
+      } else if (pagoEstado?.puede_pagar === false) {
+        motivo = pagoEstado.motivo || "No puedes crear un nuevo pago en este momento";
       } else {
-        motivo = "Puedes seleccionar parcelas";
+        motivo = "Puedes seleccionar parcelas y pagar";
       }
 
       setInfoValidacion({
@@ -444,7 +286,8 @@ const ArtesanoPredio = () => {
         tiene_solicitud: true,
         pago_pendiente: pagoPendiente,
         pago_aprobado: pagoAprobado,
-        pago_cancelable: pagoCancelable,
+        pago_rechazado: pagoRechazado,
+        pago_cancelado: pagoCancelado,
         pago_estado: pagoEstado,
         solicitud_id: solicitud.solicitud_id,
         rubro_id: solicitud.rubro_id,
@@ -457,6 +300,9 @@ const ArtesanoPredio = () => {
         parcelas_necesarias: solicitud.parcelas_necesarias,
         costo_total: solicitud.costo_total,
         info_parcelas: infoParcelas.parcelas,
+        // AÑADE estos campos nuevos para usar en la UI
+        parcelas_asignadas_actuales: pagoEstado?.parcelas_asignadas_actuales || infoParcelas.totalAsignadas,
+        parcelas_seleccionadas_en_pago: pagoEstado?.parcelas_seleccionadas_en_pago || [],
       });
 
       setDimensiones({
@@ -472,6 +318,171 @@ const ArtesanoPredio = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ================ FUNCIONES NUEVAS PARA AUTO-APROBACIÓN ================
+
+  // 1. Función para detectar si venimos de MercadoPago
+  const detectarRetornoMercadoPago = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const preferenceId = urlParams.get('pref_id') || urlParams.get('preference_id');
+    const pagoStatus = urlParams.get('pago');
+    
+    console.log("🔍 Detectando retorno de MP:", { preferenceId, pagoStatus });
+    
+    if (preferenceId) {
+      console.log(`Detectado retorno de MercadoPago con preference_id: ${preferenceId}`);
+      
+      // Limpiar URL para no tener parámetros visibles
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Iniciar verificación automática
+      iniciarVerificacionAutomatica(preferenceId);
+      
+      return true;
+    }
+    
+    return false;
+  };
+
+  // 2. Función para verificar y auto-aprobar pagos
+  const verificarYAutoAprobarPago = async (preferenceId) => {
+    if (!preferenceId) return null;
+    
+    try {
+      console.log(`Verificando pago con preference_id: ${preferenceId}`);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/pago/check-and-auto-approve/${preferenceId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        console.log("No se pudo verificar el pago");
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log("Estado del pago:", data);
+      
+      return data;
+      
+    } catch (error) {
+      console.error("Error verificando pago:", error);
+      return null;
+    }
+  };
+
+  // 3. Función para iniciar verificación automática
+  const iniciarVerificacionAutomatica = (preferenceId) => {
+    if (!preferenceId) return;
+    
+    console.log("Iniciando verificación automática para pago:", preferenceId);
+    
+    // Mostrar mensaje al usuario
+    alert("Detectamos que volviste de MercadoPago.\n\nVerificando estado de tu pago Pago Fácil...");
+    
+    // Verificar inmediatamente
+    verificarYAutoAprobarPago(preferenceId).then(data => {
+      if (!data) return;
+      
+      if (data.status === "auto_approved" || data.status === "already_approved") {
+        // Pago aprobado - mostrar mensaje y recargar
+        alert(` ${data.message}\n\nTu pago ha sido procesado y las parcelas asignadas.`);
+        
+        // Recargar información
+        cargarInfoValidacion();
+        
+        // Recargar página para ver cambios en el mapa
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+        
+      } else if (data.status === "pending") {
+        // Programar nueva verificación en 10 segundos
+        console.log(`Pago pendiente. Reintentando en 10s...`);
+        setTimeout(() => {
+          verificarYAutoAprobarPago(preferenceId).then(newData => {
+            if (newData && (newData.status === "auto_approved" || newData.status === "already_approved")) {
+              alert(`Pago aprobado automáticamente!\n\nLas parcelas han sido asignadas.`);
+              cargarInfoValidacion();
+              setTimeout(() => window.location.reload(), 2000);
+            }
+          });
+        }, 10000);
+      }
+    });
+  };
+
+  // 4. Función para simular "Ya pagué en Pago Fácil"
+  const simularYaPaguePagoFacil = async () => {
+    if (!pagoEstado?.preference_id) {
+      alert("No hay un pago pendiente para simular");
+      return;
+    }
+    
+    if (!confirm("¿Confirmas que ya pagaste en Pago Fácil?\n\nEsto marcará automáticamente tu pago como APROBADO y asignará las parcelas.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/pago/auto-aprobar-pago-facil/${pagoEstado.preference_id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`${result.message}\n\n• Pago ID: ${result.pago_id}\n• Parcelas asignadas: ${result.parcelas_asignadas?.length || 0}\n• Referencia: ${result.referencia || 'N/A'}`);
+        
+        // Recargar información
+        await cargarInfoValidacion();
+        
+        // Recargar la página para ver cambios en el mapa
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.error || "Error simulando pago");
+      }
+    } catch (error) {
+      console.error("Error simulando pago:", error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+  // 5. Función para copiar referencia de pago
+  const copiarReferenciaPago = () => {
+    if (!pagoEstado?.preference_id) {
+      alert("No hay referencia para copiar");
+      return;
+    }
+    
+    const referencia = pagoEstado.preference_id.substring(0, 12) + "...";
+    
+    navigator.clipboard.writeText(pagoEstado.preference_id)
+      .then(() => alert(`Referencia copiada:\n\n${referencia}`))
+      .catch(() => {
+        // Fallback para navegadores antiguos
+        const textarea = document.createElement('textarea');
+        textarea.value = pagoEstado.preference_id;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert(`Referencia copiada:\n\n${referencia}`);
+      });
   };
 
   const cargarInfoRubroActual = async (rubroId) => {
@@ -573,6 +584,7 @@ const ArtesanoPredio = () => {
       };
     }
   };
+
   const cargarParcelasMapa = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -777,6 +789,7 @@ const ArtesanoPredio = () => {
 
   useEffect(() => {
     cargarInfoValidacion();
+    detectarRetornoMercadoPago();
   }, []);
 
   return (
@@ -931,7 +944,7 @@ const ArtesanoPredio = () => {
                           </li>
                         </ul>
                       </div>
-
+                      {/* BOTÓN PRINCIPAL DE PAGO */}
                       <button
                         className="btn-pagar"
                         onClick={iniciarPago}
@@ -947,100 +960,80 @@ const ArtesanoPredio = () => {
                           : `Pagar reserva - $${calcularCostoTotal()}`}
                       </button>
 
-                      {/* BOTÓN PARA CANCELAR PAGO EXISTENTE - Solo se muestra si hay pago pendiente */}
-                      {infoValidacion?.pago_estado && (
-                        <div
-                          className={`pago-estado-alerta ${
-                            infoValidacion.pago_estado.estado_id === 1
-                              ? "pendiente"
-                              : infoValidacion.pago_estado.estado_id === 2
-                              ? "aprobado"
-                              : infoValidacion.pago_estado.estado_id === 3
-                              ? "rechazado"
-                              : infoValidacion.pago_estado.estado_id === 4
-                              ? "cancelado"
-                              : "desconocido"
-                          }`}
-                        >
-                          <div className="alerta-contenido">
-                            <h4>
-                              {infoValidacion.pago_estado.estado_id === 1 &&
-                                " Pago Pendiente"}
-                              {infoValidacion.pago_estado.estado_id === 2 &&
-                                " Pago Aprobado"}
-                              {infoValidacion.pago_estado.estado_id === 3 &&
-                                " Pago Rechazado"}
-                              {infoValidacion.pago_estado.estado_id === 4 &&
-                                " Pago Cancelado"}
-                            </h4>
-                            <p>
-                              Estado actual:{" "}
-                              <strong>
-                                {infoValidacion.pago_estado.estado}
-                              </strong>
-                            </p>
-
-                            {(infoValidacion.pago_estado.estado_id === 1 ||
-                              infoValidacion.pago_estado.estado_id === 3 ||
-                              infoValidacion.pago_estado.estado_id === 4) && (
-                              <button
-                                className="btn-cancelar-pago"
-                                onClick={cancelarPagoExistente}
-                                disabled={procesandoPago}
-                              >
-                                {procesandoPago
-                                  ? "Procesando..."
-                                  : infoValidacion.pago_estado.estado_id === 1
-                                  ? "Cancelar Pago Anterior"
-                                  : "Reiniciar Para Nuevo Pago"}
-                              </button>
-                            )}
+                      {/* SECCIÓN DE AUTO-APROBACIÓN PAGO FÁCIL - VERSIÓN SIMPLE */}
+                      {pagoEstado && pagoEstado.estado_pago_id === 1 && (
+                        <div style={{
+                          marginTop: '25px',
+                          padding: '20px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '15px',
+                            paddingBottom: '15px',
+                            borderBottom: '1px solid #f0f4f8'
+                          }}>
+                            <div style={{
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: '12px',
+                              color: '#905e29ff'
+                            }}>
+                            </div>
+                            <h5 style={{
+                              margin: 0,
+                              color: '#905e29ff',
+                              fontWeight: '600',
+                              fontSize: '1rem'
+                            }}>
+                              ¿Ya realizaste el pago en efectivo?
+                            </h5>
                           </div>
+                          
+                          <button
+                            onClick={simularYaPaguePagoFacil}
+                            style={{
+                              width: '100%',
+                              padding: '14px',
+                              backgroundColor: '#905e29ff',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontWeight: '600',
+                              fontSize: '1rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              marginBottom: '15px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#905e29ff'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = '#905e29ff'}
+                          >
+                            <i className="bi bi-check2-circle" style={{ marginRight: '8px' }}></i>
+                            Confirmar que ya pagué
+                          </button>
+                          
+      
                         </div>
                       )}
 
-                      {infoValidacion?.pago_aprobado && (
-                        <div className="pago-aprobado-alerta">
+                      {infoValidacion.pago_aprobado && (
+                        <div className="pago-estado-alerta aprobado">
                           <div className="alerta-contenido">
-                            <h4>✅ Pago aprobado</h4>
-                            <p>
-                              Tu pago ha sido aprobado. No puedes crear un nuevo
-                              pago.
-                            </p>
+                            <h4>Pago Aprobado</h4>
+                            <p>Tu pago ha sido aprobado. No puedes crear un nuevo pago.</p>
                           </div>
                         </div>
                       )}
-
-                      <div className="acciones">
-                        <button
-                          className="btn-confirmar"
-                          onClick={handleConfirmarParcelas}
-                          disabled={
-                            !(
-                              infoValidacion?.pago_pendiente ||
-                              infoValidacion?.pago_aprobado
-                            )
-                          }
-                        >
-                          {loading ? (
-                            <>
-                              <div className="spinner-btn"></div>
-                              Procesando...
-                            </>
-                          ) : (
-                            `Confirmar ${
-                              parcelasSeleccionadas.length
-                            } Parcela(s) - $${calcularCostoTotal()}`
-                          )}
-                        </button>
-
-                        {!esSeleccionCorrecta() && (
-                          <div className="mensaje-advertencia">
-                            Selecciona {parcelasNecesarias} parcela(s) para
-                            continuar
-                          </div>
-                        )}
-                      </div>
+                      
                     </>
                   )}
 
