@@ -557,12 +557,15 @@ const Dashboard = () => {
                         step="0.01"
                         value={config.precio_base || 0}
                         onChange={(e) => {
+                          const valor = parseFloat(e.target.value) || 0;
+                          // Asegurar que sea al menos 0
+                          const valorFinal = Math.max(0, valor);
+                          
                           const nuevasConfigs = [...configuracionesRubros];
                           const index = nuevasConfigs.findIndex(
                             (c) => c.rubro_id === config.rubro_id
                           );
-                          nuevasConfigs[index].precio_base =
-                            parseFloat(e.target.value) || 0;
+                          nuevasConfigs[index].precio_base = valorFinal;
                           setConfiguracionesRubros(nuevasConfigs);
                         }}
                       />
