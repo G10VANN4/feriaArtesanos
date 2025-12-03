@@ -26,14 +26,17 @@ const Login = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        localStorage.setItem('access_token', result.token);
-        localStorage.setItem('user_role', result.role || 'admin');
-        navigate("/dashboard", { replace: true, });
+        // REDIRECCIÓN SEGÚN ROL
+        if (result.rol_id === 2) { // Administrador
+          navigate("/dashboard", { replace: true });
+        } else if (result.rol_id === 3) { // Organizador
+          navigate("/gestion-usuarios", { replace: true });
+        } else { // Artesano u otros
+          navigate("/", { replace: true });
+        }
 
         setError("¡Inicio de sesión exitoso! Puedes continuar navegando.");
         setFormData({ email: "", password: "" });
-
-      
 
       } else {
         setError(result.message || "Error al iniciar sesión");
@@ -71,9 +74,20 @@ const Login = () => {
               marginTop: "1rem",
             }}
           >
-            <button onClick={() => navigate("/")} className="login-button">
-              Volver al Inicio
-            </button>
+            {/* BOTONES SEGÚN ROL */}
+            {user?.rol_id === 2 ? (
+              <button onClick={() => navigate("/dashboard")} className="login-button">
+                Ir al Dashboard
+              </button>
+            ) : user?.rol_id === 3 ? (
+              <button onClick={() => navigate("/gestion-usuarios")} className="login-button">
+                Gestión de Usuarios
+              </button>
+            ) : (
+              <button onClick={() => navigate("/")} className="login-button">
+                Ir al Inicio
+              </button>
+            )}
 
             <button
               onClick={() => {

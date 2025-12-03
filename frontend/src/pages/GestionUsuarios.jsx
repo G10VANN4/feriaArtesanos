@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
-import axios from "axios";
+import axios from "../services/api/axiosConfig"; // Cambiar a axios configurado
+import "../styles/App.css";
 
 const GestionUsuarios = () => {
   const { isAuthenticated, user } = useAuth();
@@ -29,7 +30,7 @@ const GestionUsuarios = () => {
   // Estados para edición
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
-  const [modoEdicion, setModoEdicion] = useState(false);
+  const [, setModoEdicion] = useState(false);
 
   // Verificar permisos
   useEffect(() => {
@@ -49,14 +50,18 @@ const GestionUsuarios = () => {
   const cargarUsuarios = async () => {
     try {
       setLoading(true);
-      const response = await axios.get("http://localhost:5000/api/usuarios/buscar/rol?rol_id=2");
-      const organizadoresResponse = await axios.get("http://localhost:5000/api/usuarios/buscar/rol?rol_id=3");
+      setError("");
+      
+      // Cargar administradores
+      const response = await axios.get("/api/usuarios/buscar/rol?rol_id=2");
+      // Cargar organizadores
+      const organizadoresResponse = await axios.get("/api/usuarios/buscar/rol?rol_id=3");
       
       const todosUsuarios = [...response.data.usuarios, ...organizadoresResponse.data.usuarios];
       setUsuarios(todosUsuarios);
     } catch (error) {
       console.error("Error cargando usuarios:", error);
-      setError("Error al cargar los usuarios");
+      setError(error.response?.data?.error || "Error al cargar los usuarios");
     } finally {
       setLoading(false);
     }
@@ -85,11 +90,11 @@ const GestionUsuarios = () => {
         nombre: formData.nombre,
         email: formData.email,
         password: formData.password,
-        rol_id: parseInt(formData.rol_id),
-        creado_por: user?.usuario_id || 9 // Usar el ID del usuario logueado
+        rol_id: parseInt(formData.rol_id)
+        // NOTA: El campo 'creado_por' ahora se obtiene automáticamente del token en el backend
       };
 
-      await axios.post("http://localhost:5000/api/usuarios/crear", usuarioData);
+      await axios.post("/api/usuarios/crear", usuarioData);
       
       setSuccess("Usuario creado exitosamente");
       resetForm();
@@ -135,7 +140,7 @@ const GestionUsuarios = () => {
         usuarioData.password = formData.password;
       }
 
-      await axios.put(`http://localhost:5000/api/usuarios/editar/${usuarioEditando.usuario_id}`, usuarioData);
+      await axios.put(`/api/usuarios/editar/${usuarioEditando.usuario_id}`, usuarioData);
       
       setSuccess("Usuario actualizado exitosamente");
       cerrarModalEdicion();
@@ -157,7 +162,7 @@ const GestionUsuarios = () => {
     }
 
     try {
-      await axios.delete(`http://localhost:5000/api/usuarios/eliminar/${usuarioId}`);
+      await axios.delete(`/api/usuarios/eliminar/${usuarioId}`);
       setSuccess("Usuario eliminado exitosamente");
       cargarUsuarios();
     } catch (error) {
@@ -175,11 +180,11 @@ const GestionUsuarios = () => {
 
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/usuarios/buscar/nombre?nombre=${busqueda}`);
+      const response = await axios.get(`/api/usuarios/buscar/nombre?nombre=${encodeURIComponent(busqueda)}`);
       setUsuarios(response.data.usuarios);
     } catch (error) {
       console.error("Error buscando usuarios:", error);
-      setError("Error al buscar usuarios");
+      setError(error.response?.data?.error || "Error al buscar usuarios");
     } finally {
       setLoading(false);
     }
@@ -188,7 +193,7 @@ const GestionUsuarios = () => {
   // Función para abrir modal de edición
   const abrirModalEdicion = async (usuarioId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/usuarios/${usuarioId}`);
+      const response = await axios.get(`/api/usuarios/${usuarioId}`);
       const usuario = response.data;
       
       setUsuarioEditando(usuario);
@@ -205,7 +210,7 @@ const GestionUsuarios = () => {
       setSuccess("");
     } catch (error) {
       console.error("Error al cargar datos del usuario:", error);
-      setError("Error al cargar datos del usuario");
+      setError(error.response?.data?.error || "Error al cargar datos del usuario");
     }
   };
 
@@ -278,7 +283,7 @@ const GestionUsuarios = () => {
                   onChange={(e) => setFormData({...formData, rol_id: e.target.value})}
                   required
                 >
-                  <option value="">Seleccione rol...</option>
+                  <option value="">Seleccionar rol</option>
                   <option value="2">Administrador</option>
                   <option value="3">Organizador</option>
                 </select>
@@ -337,7 +342,6 @@ const GestionUsuarios = () => {
         <div className="listado-usuarios-section">
           <div className="listado-header">
             <h2>Listado de Usuarios</h2>
-            
             <div className="filtros-container">
               <div className="filtro-rol">
                 <button 

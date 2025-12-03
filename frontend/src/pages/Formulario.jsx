@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import axios from "../services/api/axiosConfig";
 import Navbar from "../components/Navbar";
 import "../styles/App.css";
 
 const Formulario = () => {
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -20,7 +20,7 @@ const Formulario = () => {
     terminos_aceptados: false,
   });
 
-  const [imagenes, setImagenes] = useState([]);
+  const [imagenes, setImagenes] = useState([]); // Array de File objects
   const [imagenesPreviews, setImagenesPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,55 +33,65 @@ const Formulario = () => {
     });
   };
 
-  // Función para convertir archivos a base64
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
+  // Función para crear preview de imágenes (sin base64)
+  const createImagePreview = (file) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
     });
   };
 
-const handleImageChange = async (e) => {
-  const files = Array.from(e.target.files);
-
-  if (files.length === 0) return;
-
-  // Limitar a máximo 5 archivos
-  if (files.length > 5) {
-    setError("¡Máximo 5 imágenes permitidas! Se eliminarán las extras.");
-    files.splice(5); // eliminar todo lo que sobre del array
-  } else {
+  const handleImageChange = async (e) => {
+    let files = Array.from(e.target.files);
     setError("");
-  }
 
-  // Validar tamaño de archivos (máx 2MB)
-  const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
-  if (oversizedFiles.length > 0) {
-    setError("Algunas imágenes son demasiado grandes (máx 2MB cada una)");
-    files = files.filter(file => file.size <= 2 * 1024 * 1024);
-  }
+    if (files.length === 0) return;
 
-  try {
-    const base64Promises = files.map(file => convertToBase64(file));
-    const base64Images = await Promise.all(base64Promises);
+    // Limitar a máximo 5 archivos
+    if (files.length > 5) {
+      setError("¡Máximo 5 imágenes permitidas! Se seleccionarán las primeras 5.");
+      files = files.slice(0, 5);
+    }
 
-    // Previews
-    const previews = base64Images.map(img => ({
-      src: img,
-      name: `imagen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    }));
+    // Validar tipos de archivo (solo JPG y PNG)
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      setError("Solo se permiten archivos JPG y PNG. Los archivos no válidos serán ignorados.");
+      files = files.filter(file => validTypes.includes(file.type));
+    }
 
-    setImagenes(base64Images);        // array real de base64
-    setImagenesPreviews(previews);
-  } catch (error) {
-    console.error("Error procesando imágenes:", error);
-    setError("Error al procesar las imágenes");
-  }
-};
+    // Validar tamaño de archivos (máx 2MB)
+    const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setError("Algunas imágenes son demasiado grandes (máx 2MB cada una). Serán ignoradas.");
+      files = files.filter(file => file.size <= 2 * 1024 * 1024);
+    }
 
+    if (files.length === 0) {
+      setError("No hay imágenes válidas para subir.");
+      return;
+    }
 
+    try {
+      // Crear previews para mostrar al usuario
+      const previewPromises = files.map(file => createImagePreview(file));
+      const previews = await Promise.all(previewPromises);
+
+      const previewsWithNames = previews.map((preview, index) => ({
+        src: preview,
+        name: files[index].name
+      }));
+
+      setImagenes(files); // Guardar los archivos File originales
+      setImagenesPreviews(previewsWithNames);
+    } catch (error) {
+      console.error("Error creando previews:", error);
+      setError("Error al procesar las imágenes");
+    }
+  };
 
   const removeImage = (index) => {
     const newImagenes = [...imagenes];
@@ -112,36 +122,55 @@ const handleImageChange = async (e) => {
       return;
     }
 
+    if (imagenes.length === 0) {
+      setError("Debe subir al menos una imagen");
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Usuario no autenticado");
 
-      const solicitudData = {
-        nombre: formData.nombre,
-        dni: formData.dni,
-        telefono: formData.telefono,
-        descripcion: formData.descripcion,
-        dimensiones_ancho: parseFloat(formData.dimensiones_ancho),
-        dimensiones_largo: parseFloat(formData.dimensiones_largo),
-        rubro_id: parseInt(formData.rubro_id),
-        terminos_aceptados: formData.terminos_aceptados,
-        fotos: imagenes // Imágenes en base64
-      };
+      // Crear FormData para enviar archivos
+      const formDataToSend = new FormData();
+      
+      // Agregar campos del formulario
+      formDataToSend.append('nombre', formData.nombre);
+      formDataToSend.append('dni', formData.dni);
+      formDataToSend.append('telefono', formData.telefono);
+      formDataToSend.append('descripcion', formData.descripcion);
+      formDataToSend.append('dimensiones_ancho', formData.dimensiones_ancho);
+      formDataToSend.append('dimensiones_largo', formData.dimensiones_largo);
+      formDataToSend.append('rubro_id', formData.rubro_id);
+      formDataToSend.append('terminos_aceptados', formData.terminos_aceptados);
 
-      console.log("Enviando solicitud con imágenes:", {
-        ...solicitudData,
-        fotos: [`${imagenes.length} imágenes`] 
+      // Agregar imágenes como archivos
+      imagenes.forEach((file) => {
+        formDataToSend.append('fotos', file);
       });
 
-      const response = await axios.post("/solicitudes", solicitudData, {
+      console.log("Enviando solicitud con:", {
+        datos: formData,
+        imagenes: `${imagenes.length} archivos`
+      });
+
+      const response = await axios.post("/solicitudes", formDataToSend, {
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (response.status === 201) {
-        alert(" Solicitud enviada exitosamente");
+        const { data } = response;
+        
+        if (data.notificacion) {
+          alert(` ${data.msg}\n\n ${data.notificacion}`);
+        } else {
+          alert(` ${data.msg}`);
+        }
+        
         // Limpiar formulario
         setFormData({
           nombre: "",
@@ -159,12 +188,17 @@ const handleImageChange = async (e) => {
       }
     } catch (err) {
       console.error("Error completo:", err);
-      setError(
-        err.response?.data?.msg || 
-        err.response?.data?.error || 
-        err.message || 
-        "Error interno del sistema"
-      );
+      const errorMessage = err.response?.data?.msg || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          "Error interno del sistema";
+      if (errorMessage.includes("Solo se permite una solicitud por año")) {
+        alert("Ya enviaste una solicitud este año. No podés enviar otra hasta el próximo período.");
+        navigate("/historial"); 
+        setLoading(false);
+        return; 
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -193,6 +227,7 @@ const handleImageChange = async (e) => {
                 maxLength="20"
                 className="form-input"
               />
+              <small className="form-help">Máximo 20 caracteres</small>
             </div>
 
             {/* DNI */}
@@ -208,6 +243,7 @@ const handleImageChange = async (e) => {
                 max="99999999"
                 className="form-input"
               />
+              <small className="form-help"> El DNI debe tener 8 dígitos</small>
             </div>
 
             {/* Teléfono */}
@@ -223,6 +259,7 @@ const handleImageChange = async (e) => {
                 maxLength="20"
                 className="form-input"
               />
+              <small className="form-help">Máximo 20 caracteres</small>
             </div>
 
             {/* Descripción */}
@@ -245,16 +282,16 @@ const handleImageChange = async (e) => {
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept=".jpg,.jpeg,.png"
                 onChange={handleImageChange}
                 className="form-input"
               />
               <small className="file-info">
-                Máximo 5 imágenes, 2MB cada una. Formatos: JPG, PNG, GIF.
+                 Máximo 5 imágenes, 2MB cada una. 
+                <br />
+                 Formatos permitidos: JPG, PNG
               </small>
-              <small className="file-info">
-                Si ingresa mas solo se guardaran las primeras 5.
-              </small>
+              
               {/* Preview de imágenes */}
               {imagenesPreviews.length > 0 && (
                 <div className="image-previews">
@@ -262,7 +299,8 @@ const handleImageChange = async (e) => {
                   <div className="preview-container">
                     {imagenesPreviews.map((preview, index) => (
                       <div key={index} className="image-preview">
-                        <img src={preview.src} alt={`Preview ${index + 1}`} />
+                        <img src={preview.src} alt={`Preview ${preview.name}`} />
+                        <span className="image-name">{preview.name}</span>
                         <button
                           type="button"
                           className="remove-image-btn"
@@ -307,6 +345,9 @@ const handleImageChange = async (e) => {
                 />
                 <span className="dimensiones-unidad">m</span>
               </div>
+              <small className="form-help">
+                Las parcelas son de 3x3 metros. Se calcularán automáticamente.
+              </small>
             </div>
 
             {/* Rubro */}
@@ -321,8 +362,8 @@ const handleImageChange = async (e) => {
               >
                 <option value="">Seleccione un rubro</option>
                 <option value="1">Gastronomía</option>
-                <option value="2">Artesanía</option>
-                <option value="3">Reventa</option>
+                <option value="2">Reventa</option>
+                <option value="3">Artesanía</option>
               </select>
             </div>
 
@@ -338,19 +379,25 @@ const handleImageChange = async (e) => {
                 />
                 <span className="checkbox-label">
                   Acepto los{" "}
-                  <a href="/terminos" target="_blank" rel="noopener noreferrer">
+                  <Link 
+                    to="/terminos" 
+                    className="terminos-link"
+                  >
                     términos y condiciones
-                  </a>
+                  </Link>
                 </span>
               </label>
+              <small className="form-help">
+                confirma que ha leído y acepta los términos y condiciones
+              </small>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || imagenes.length === 0}
               className="registro-button"
             >
-              {loading ? "Enviando..." : "Enviar Formulario"}
+              {loading ? " Enviando..." : " Enviar Formulario"}
             </button>
           </form>
         </div>

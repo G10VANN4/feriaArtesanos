@@ -9,6 +9,9 @@ class Rubro(db.Model):
     color_id = db.Column(db.Integer, db.ForeignKey('Color.color_id'), nullable=False)
     es_activo = db.Column(db.Boolean, default=True)
 
+    # AGREGAR ESTA RELACIÓN
+    color_rel = db.relationship('Color', backref='rubros', lazy='joined')
+
     def to_dict(self):
         return {
             'rubro_id': self.rubro_id,

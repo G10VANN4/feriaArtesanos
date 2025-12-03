@@ -5,19 +5,18 @@ from models.base import db
 from models.administrador import Administrador
 from models.artesano import Artesano
 from models.color import Color
-from models.configuracion_grid import ConfiguracionGrid
+from models.mapa import Mapa
 from models.estado_notificacion import EstadoNotificacion
 from models.estado_pago import EstadoPago
 from models.estado_solicitud import EstadoSolicitud
 from models.estado_usuario import EstadoUsuario
-from models.grid_cuadrado import GridCuadrado
+from models.Tipo_parcela import Tipo_parcela
 from models.historial_participacion import HistorialParticipacion
 from models.limite_rubro import LimiteRubro
 from models.notificacion import Notificacion
 from models.organizador import Organizador
 from models.pago import Pago
 from models.parcela import Parcela
-from models.reasignacion_puesto import ReasignacionPuesto
 from models.rol import Rol
 from models.rubro import Rubro
 from models.solicitud import Solicitud
@@ -31,7 +30,7 @@ system_bp = Blueprint('system_bp', __name__)
 @system_bp.route('/')
 def home():
     return jsonify({
-        'message': '✅ Sistema de Ferias con MySQL',
+        'message': 'Sistema de Ferias con MySQL',
         'status': 'active',
         'database': 'MySQL',
         'endpoints': {
@@ -48,14 +47,14 @@ def test_connection():
         db.engine.connect()
         return jsonify({
             'success': True,
-            'message': '✅ Conexión a MySQL exitosa',
+            'message': 'Conexión a MySQL exitosa',
             'database': 'sistema_ferias'
         }), 200
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e),
-            'message': '❌ Error de conexión. Revisa la configuración.'
+            'message': 'Error de conexión. Revisa la configuración.'
         }), 500
 
 @system_bp.route('/api/init-db')
@@ -63,7 +62,7 @@ def init_db():
     """Crear todas las tablas y datos iniciales automáticamente"""
     try:
         db.create_all()
-        print("✅ Tablas creadas exitosamente en MySQL")
+        print("Tablas creadas exitosamente en MySQL")
         datos_insertados = False
 
         # PRIMERO insertar datos básicos
@@ -73,7 +72,7 @@ def init_db():
             roles = [Rol(tipo=t, es_activo=True) for t in ['Artesano', 'Administrador', 'Organizador']]
             db.session.add_all(roles)
             db.session.flush()
-            print("✅ Roles insertados")
+            print("Roles insertados")
             datos_insertados = True
 
         # 2. Estados de usuario 
@@ -81,19 +80,19 @@ def init_db():
             estados = [EstadoUsuario(tipo=t, es_activo=True) for t in ['Activo', 'Inactivo']]
             db.session.add_all(estados)
             db.session.flush()
-            print("✅ Estados de usuario insertados")
+            print("Estados de usuario insertados")
             datos_insertados = True
 
         # 3. Colores (necesarios para Rubro)
         if Color.query.count() == 0:
             colores = [
-                Color(nombre='Rojo', codigo_hex='#FF0000'),
-                Color(nombre='Verde', codigo_hex='#00FF00'),
-                Color(nombre='Azul', codigo_hex='#0000FF')
+                Color(nombre='Naranja Gastronomía', codigo_hex='#FF6B35'),
+                Color(nombre='Turquesa Reventa', codigo_hex='#2EC4B6'),
+                Color(nombre='Morado Artesanías', codigo_hex='#6A4C93')
             ]
             db.session.add_all(colores)
             db.session.flush()
-            print("✅ Colores insertados")
+            print("Colores insertados")
             datos_insertados = True
 
         # 4. Estados de Solicitud ( para RF5)
@@ -103,11 +102,10 @@ def init_db():
                 EstadoSolicitud(nombre='Aprobada', es_activo=True),
                 EstadoSolicitud(nombre='Rechazada', es_activo=True),
                 EstadoSolicitud(nombre='Cancelada', es_activo=True),
-                EstadoSolicitud(nombre='Pendiente por modificación', es_activo=True)
             ]
             db.session.add_all(estados_solicitud)
             db.session.flush()
-            print("✅ Estados de solicitud insertados")
+            print("Estados de solicitud insertados")
             datos_insertados = True
 
         # 5. Estados de Pago (para RF24)
@@ -120,7 +118,7 @@ def init_db():
             ]
             db.session.add_all(estados_pago)
             db.session.flush()
-            print("✅ Estados de pago insertados")
+            print("Estados de pago insertados")
             datos_insertados = True
 
         # 6. Estados de Notificación
@@ -132,60 +130,39 @@ def init_db():
             ]
             db.session.add_all(estados_notificacion)
             db.session.flush()
-            print("✅ Estados de notificación insertados")
+            print("Estados de notificación insertados")
             datos_insertados = True
 
         # 7. insertar Rubros 
         if Rubro.query.count() == 0:
-            # Obtener los colores recién insertados
-            color_rojo = Color.query.filter_by(nombre='Rojo').first()
-            color_verde = Color.query.filter_by(nombre='Verde').first()
-            color_azul = Color.query.filter_by(nombre='Azul').first()
+            color_gastronomia = Color.query.filter_by(nombre='Naranja Gastronomía').first()
+            color_reventa = Color.query.filter_by(nombre='Turquesa Reventa').first()
+            color_artesanias = Color.query.filter_by(nombre='Morado Artesanías').first()
             
             rubros = [
-                Rubro(tipo='Gastronomía', precio_parcela=100000, color_id=color_rojo.color_id),
-                Rubro(tipo='Reventa', precio_parcela=25000, color_id=color_verde.color_id),
-                Rubro(tipo='Artesanías', precio_parcela=15000, color_id=color_azul.color_id)
+                Rubro(tipo='Gastronomía', precio_parcela=0, color_id=color_gastronomia.color_id),
+                Rubro(tipo='Reventa', precio_parcela=0, color_id=color_reventa.color_id),
+                Rubro(tipo='Artesanías', precio_parcela=0, color_id=color_artesanias.color_id)
             ]
             db.session.add_all(rubros)
-            print("✅ Rubros insertados")
+            print("Rubros insertados")
             datos_insertados = True
 
-        # 8. Configuración inicial del grid (para RF16)
-        if ConfiguracionGrid.query.count() == 0:
-            config_grid = ConfiguracionGrid(
-                ancho_total=100,
-                largo_total=100,
-                medida_cuadrado=3.00
-            )
-            db.session.add(config_grid)
-            print("✅ Configuración grid insertada")
+        # 7.5 CREAR TIPO_PARcELA BÁSICO SI NO EXISTE
+        if Tipo_parcela.query.count() == 0:
+            tipo_basico = Tipo_parcela(tipo='Básica', es_activo=True)
+            db.session.add(tipo_basico)
+            db.session.flush()  # Esto es importante para obtener el ID
+            print("Tipo de parcela básica creado")
             datos_insertados = True
 
-        # 9. CREAR USUARIOS ADMINISTRADORES 
-        admin_creado = False
         
         # Obtener IDs necesarios
         estado_activo = EstadoUsuario.query.filter_by(tipo='Activo').first()
-        rol_admin = Rol.query.filter_by(tipo='Administrador').first()
         rol_organizador = Rol.query.filter_by(tipo='Organizador').first()
 
-        if Usuario.query.filter_by(email='admin@feria.com').first() is None:
-            # Crear usuario Administrador usando el método correcto
-            admin_user = Usuario(
-                email='admin@feria.com',
-                estado_id=estado_activo.estado_id,
-                rol_id=rol_admin.rol_id
-            )
-            admin_user.set_password('admin123')  # Usar el método del modelo para hashear
-            
-            db.session.add(admin_user)
-            db.session.flush()
-            
-
-            print("✅ Usuario Administrador creado: admin@feria.com / admin123")
-            admin_creado = True
-
+     
+       
         # 10. Crear usuario Organizador también
         if Usuario.query.filter_by(email='organizador@feria.com').first() is None:
             org_user = Usuario(
@@ -198,21 +175,15 @@ def init_db():
             db.session.add(org_user)
             db.session.flush()
             
-            print("✅ Usuario Organizador creado: organizador@feria.com / org123")
+            print("Usuario Organizador creado: organizador@feria.com / org123")
             admin_creado = True
 
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': '✅ Base de datos inicializada completamente',
+            'message': 'Base de datos inicializada completamente',
             'datos_insertados': datos_insertados,
-            'admins_creados': admin_creado,
-            'credenciales_admin': {
-                'email': 'admin@feria.com',
-                'password': 'admin123',
-                'rol': 'Administrador'
-            },
             'credenciales_organizador': {
                 'email': 'organizador@feria.com',
                 'password': 'org123',
@@ -226,7 +197,6 @@ def init_db():
                 'estados_notificacion': EstadoNotificacion.query.count(),
                 'colores': Color.query.count(),
                 'rubros': Rubro.query.count(),
-                'config_grid': ConfiguracionGrid.query.count(),
                 'usuarios': Usuario.query.count(),
                 'administradores': Administrador.query.count()
             }
@@ -270,3 +240,24 @@ def status():
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@system_bp.route('/system/debug-tables', methods=['GET'])
+def debug_tables():
+    """Endpoint temporal para debug de tablas de tokens"""
+    try:
+        from models.active_token import ActiveToken
+        from models.token_blacklist import TokensBlacklist
+        
+        active_tokens = ActiveToken.query.all()
+        blacklisted_tokens = TokensBlacklist.query.all()
+        
+        return jsonify({
+            'active_tokens': [token.to_dict() for token in active_tokens],
+            'blacklisted_tokens': [token.to_dict() for token in blacklisted_tokens],
+            'counts': {
+                'active': len(active_tokens),
+                'blacklisted': len(blacklisted_tokens)
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

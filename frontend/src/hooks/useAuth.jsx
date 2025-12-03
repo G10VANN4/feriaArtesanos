@@ -5,6 +5,7 @@ import { authService } from '../services/api/authService';
 const AuthContext = createContext();
 
 // Hook personalizado
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -15,23 +16,42 @@ export const useAuth = () => {
 
 // Provider
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem('token')
-  );
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem('user')) || null
-  );
-  const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
-    }
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      console.log('🔍 Verificando autenticación...');
+      const data = await authService.checkAuth();
+      
+      setIsAuthenticated(true);
+      
+      
+      const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
+      
+      setUser({ 
+        usuario_id: data.user_id,
+        email: userFromStorage?.email,
+        rol_id: userFromStorage?.rol_id
+      });
+      
+      console.log('Usuario autenticado:', data.user_id);
+    } catch (error) {
+      console.log(' Usuario no autenticado');
+      setIsAuthenticated(false);
+      setUser(null);
+      // Limpiar localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const register = async (formData) => {
     setLoading(true);
@@ -56,10 +76,16 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setUser({ 
         email, 
-        rol_id: result.rol_id 
+        rol_id: result.rol_id,
+        usuario_id: result.usuario_id
       });
 
-      return { success: true, data: result };
+      return { 
+        success: true, 
+        token: result.access_token,
+        rol_id: result.rol_id,  
+        email: email 
+      };
     } catch (error) {
       return {
         success: false,
@@ -70,8 +96,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    authService.logout();
+  const logout = async () => {
+    await authService.logout();
     setIsAuthenticated(false);
     setUser(null);
   };
@@ -82,7 +108,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     user,
-    loading
+    loading,
+    checkAuth
   };
 
   return (
@@ -91,4 +118,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
