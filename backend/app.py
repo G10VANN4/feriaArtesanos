@@ -40,10 +40,6 @@ db.init_app(app)
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload):
-    """
-    Callback que verifica si un token JWT está en la lista negra
-    Se ejecuta automáticamente en cada request protegido con @jwt_required()
-    """
     try:
         jti = jwt_payload.get("jti")
         if not jti:
@@ -61,9 +57,6 @@ def check_if_token_revoked(jwt_header, jwt_payload):
     
 @jwt.additional_claims_loader
 def add_claims_to_access_token(identity):
-    """
-    Puedes usar esto para agregar claims adicionales si lo necesitas
-    """
     return {
         "user_identity": identity,
         "system": "sistema_ferias"

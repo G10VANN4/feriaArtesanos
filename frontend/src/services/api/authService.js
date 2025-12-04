@@ -15,9 +15,11 @@ export const authService = {
 
   login: async (credentials) => {
     try {
-      console.log('🔍 Intentando login con:', credentials.email);
+      console.log('Intentando login con:', credentials.email);
       
-      // Usar fetch para cookies
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      
       const response = await fetch('http://localhost:5000/auth/login', {
         method: 'POST',
         headers: {
@@ -33,26 +35,21 @@ export const authService = {
         throw data || { msg: 'Error en login' };
       }
       
-      console.log('✅ Login exitoso, respuesta:', data);
+      console.log('Login exitoso, respuesta:', {
+        usuario_id: data.usuario_id,
+        rol_id: data.rol_id,
+        email: data.email
+      });
       
       if (data && data.access_token) {
         localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify({
-          usuario_id: data.usuario_id,
-          email: credentials.email,
-          rol_id: data.rol_id,
-        }));
-        
-        console.log('✅ Token guardado en localStorage para compatibilidad');
-        
-        return data;
-      } else {
-        console.error('❌ Respuesta del login incompleta:', data);
-        throw { msg: 'Respuesta del servidor incompleta' };
+        console.log('Token guardado en localStorage');
       }
       
+      return data;
+      
     } catch (error) {
-      console.error('❌ Error en authService.login:', error);
+      console.error('Error en authService.login:', error);
       throw error;
     }
   },
@@ -66,22 +63,32 @@ export const authService = {
     } catch (error) {
       console.error('Error en logout service:', error);
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      console.log('✅ Logout ejecutado - localStorage limpiado');
+      localStorage.clear(); 
+      console.log('Logout ejecutado - localStorage COMPLETAMENTE limpiado');
     }
   },
 
   checkAuth: async () => {
-    const response = await fetch('http://localhost:5000/auth/check-auth', {
-      method: 'GET',
-      credentials: 'include',
-    });
-    
-    if (!response.ok) {
-      throw new Error('No autenticado');
+    try {
+      const response = await fetch('http://localhost:5000/auth/check-auth', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        throw new Error('No autenticado');
+      }
+      
+      const data = await response.json();
+      
+      
+      return data;
+    } catch (error) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      throw error;
     }
-    
-    return await response.json();
-  }
+  },
 };

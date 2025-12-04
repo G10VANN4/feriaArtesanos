@@ -26,12 +26,11 @@ const Login = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        // REDIRECCIÓN SEGÚN ROL
-        if (result.rol_id === 2) { // Administrador
+        if (result.rol_id === 2) { 
           navigate("/dashboard", { replace: true });
-        } else if (result.rol_id === 3) { // Organizador
+        } else if (result.rol_id === 3) { 
           navigate("/gestion-usuarios", { replace: true });
-        } else { // Artesano u otros
+        } else { 
           navigate("/", { replace: true });
         }
 
@@ -48,8 +47,7 @@ const Login = () => {
     }
   };
 
-  // Si ya está autenticado, mostrar mensaje y opciones
-  if (isAuthenticated) {
+  if (isAuthenticated && user) {
     return (
       <div className="login-container">
         <div className="login-card">

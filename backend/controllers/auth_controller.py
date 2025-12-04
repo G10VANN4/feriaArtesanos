@@ -24,7 +24,7 @@ auth_bp = Blueprint('auth_bp', __name__)
 @auth_bp.route('/check-auth', methods=['OPTIONS'])
 def handle_options():
     return jsonify({'status': 'ok'}), 200
-# En utils/token_manager.py - mejora el método can_user_login
+
 @staticmethod
 def can_user_login(usuario_id):
     """Verifica si un usuario puede hacer login (no tiene sesión activa)"""
@@ -34,16 +34,16 @@ def can_user_login(usuario_id):
         active_session = TokenManager.get_active_session(usuario_id)
         
         if active_session:
-            logger.info(f"🚫 Usuario {usuario_id} ya tiene sesión activa - JTI: {active_session.jti}")
+            logger.info(f" Usuario {usuario_id} ya tiene sesión activa - JTI: {active_session.jti}")
             logger.info(f"   Creado: {active_session.created_at}, Expira: {active_session.expires_at}")
             return False
             
-        logger.info(f"✅ Usuario {usuario_id} puede hacer login - Sin sesiones activas")
+        logger.info(f"Usuario {usuario_id} puede hacer login - Sin sesiones activas")
         return True
         
     except Exception as e:
-        logger.error(f"❌ Error en can_user_login: {str(e)}")
-        return True  # Por seguridad, permitir login en caso de error
+        logger.error(f"Error en can_user_login: {str(e)}")
+        return True  
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
@@ -92,7 +92,6 @@ def login():
         if not user or not user.check_password(password):
             return jsonify({'msg': 'Credenciales inválidas'}), 401
 
-        # ✅ VERIFICAR SI PUEDE HACER LOGIN PRIMERO
         if not TokenManager.can_user_login(user.usuario_id):
             return jsonify({'msg': 'Usuario ya tiene una sesión activa. Cierre sesión en otros dispositivos.'}), 409
 
@@ -118,6 +117,7 @@ def login():
             'access_token': access_token,
             'rol_id': user.rol_id,
             'usuario_id': user.usuario_id,
+            'email': user.email,
             'msg': 'Inicio de sesión exitoso',
             'session_management': 'single_session'
         })
@@ -127,10 +127,11 @@ def login():
             access_token,
             max_age=60*60*24,
             secure=False,
-            httponly=True,
+            httponly=True, 
             samesite='Lax'
         )
-
+        
+        
         logger.info(f"LOGIN EXITOSO - User: {user.usuario_id}, JTI: {jti}")
         return response, 200
 
@@ -138,23 +139,61 @@ def login():
         logger.error(f"LOGIN ERROR: {str(e)}")
         return jsonify({'msg': f'Error interno: {str(e)}'}), 500
 
+
+@auth_bp.route('/check-auth', methods=['GET'])
+@jwt_required()
+def check_auth():
+    try:
+        claims = get_jwt()
+        jti = claims.get('jti')
+        usuario_id = claims.get('usuario_id')
+        email = claims.get('email')
+        
+        if not usuario_id:
+            current_user = get_jwt_identity()
+            usuario_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
+        
+        logger.info(f"CHECK-AUTH - User: {usuario_id}, JTI: {jti}")
+        
+
+        if TokenManager.is_token_revoked(jti):
+            logger.info(f"Token revocado detectado: {jti}")
+            return jsonify({'authenticated': False, 'msg': 'Token ha sido revocado. Por favor inicie sesión nuevamente.'}), 401
+        
+        user = Usuario.query.get(usuario_id)
+        if not user:
+            return jsonify({'authenticated': False, 'msg': 'Usuario no encontrado'}), 401
+        
+        logger.info(f"Token válido: {jti}")
+        
+        return jsonify({
+            'authenticated': True,
+            'user_id': usuario_id,
+            'usuario_id': usuario_id,
+            'email': email or user.email,
+            'rol_id': claims.get('rol_id'),
+            'session_valid': True,
+            'jti': jti
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error en check-auth: {str(e)}")
+        return jsonify({'authenticated': False, 'msg': str(e)}), 401
+
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
     try:
-        # Obtener claims del token
         claims = get_jwt()
         jti = claims.get('jti')
         usuario_id = claims.get('usuario_id')
         
-        # Si no tenemos usuario_id en claims, obtenerlo del identity
         if not usuario_id:
             current_user = get_jwt_identity()
             usuario_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
         
         logger.info(f"LOGOUT - Usuario ID: {usuario_id}, JTI: {jti}")
         
-        # Terminar sesión activa
         TokenManager.terminate_active_session(usuario_id)
         
         response = jsonify({
@@ -163,7 +202,6 @@ def logout():
             'user_id': usuario_id
         })
         
-        # Eliminar cookie
         response.set_cookie(
             'access_token',
             '',
@@ -179,38 +217,7 @@ def logout():
     except Exception as e:
         logger.error(f"Error en logout: {str(e)}")
         return jsonify({'msg': 'Error al cerrar sesión'}), 500
-
-@auth_bp.route('/check-auth', methods=['GET'])
-@jwt_required()
-def check_auth():
-    try:
-        claims = get_jwt()
-        jti = claims.get('jti')
-        usuario_id = claims.get('usuario_id')
-        
-        # Si no tenemos usuario_id en claims, obtenerlo del identity
-        if not usuario_id:
-            current_user = get_jwt_identity()
-            usuario_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
-        
-        logger.info(f"CHECK-AUTH - User: {usuario_id}, JTI: {jti}")
-        
-        # Verificar que el token no esté revocado
-        if TokenManager.is_token_revoked(jti):
-            logger.info(f"Token revocado detectado: {jti}")
-            return jsonify({'authenticated': False, 'msg': 'Token ha sido revocado. Por favor inicie sesión nuevamente.'}), 401
-        
-        logger.info(f"Token válido: {jti}")
-        return jsonify({
-            'authenticated': True,
-            'user_id': usuario_id,
-            'rol_id': claims.get('rol_id'),
-            'session_valid': True
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error en check-auth: {str(e)}")
-        return jsonify({'authenticated': False, 'msg': str(e)}), 401
+    
 
 @auth_bp.route('/force-logout-other-sessions', methods=['POST'])
 @jwt_required()
@@ -223,7 +230,6 @@ def force_logout_other_sessions():
             current_user = get_jwt_identity()
             usuario_id = int(current_user.split('_')[1]) if '_' in current_user else int(current_user)
         
-        # Terminar sesión activa actual
         TokenManager.terminate_active_session(usuario_id)
         
         return jsonify({
@@ -265,13 +271,12 @@ def clean_session():
 @auth_bp.route('/dev-reset-sessions', methods=['POST'])
 def dev_reset_sessions():
     try:
-        # Limpiar todas las sesiones activas
         active_sessions = ActiveToken.query.all()
         for session in active_sessions:
             TokenManager.terminate_active_session(session.usuario_id)
         
         return jsonify({
-            'msg': '✅ TODAS las sesiones fueron eliminadas',
+            'msg': ' TODAS las sesiones fueron eliminadas',
             'sessions_cleared': True
         }), 200
         
@@ -312,7 +317,6 @@ def dev_view_sessions():
         logger.error(f"Error en dev-view-sessions: {str(e)}")
         return jsonify({'msg': 'Error al ver sesiones'}), 500
 
-# En auth_bp.py - Agrega este endpoint
 @auth_bp.route('/force-clean-session', methods=['POST'])
 def force_clean_session():
     """Forzar limpieza de sesión de un usuario (útil para desarrollo)"""
@@ -329,7 +333,6 @@ def force_clean_session():
 
         usuario_id = user.usuario_id
         
-        # Forzar limpieza
         cleaned = TokenManager.terminate_active_session(usuario_id)
         
         return jsonify({
@@ -342,11 +345,9 @@ def force_clean_session():
         print(f"Error en force-clean-session: {str(e)}")
         return jsonify({'msg': 'Error al limpiar sesión'}), 500
     
-# En auth_bp.py - Agrega estos endpoints
 
 @auth_bp.route('/debug-active-sessions', methods=['GET'])
 def debug_active_sessions():
-    """Endpoint de diagnóstico para ver sesiones activas"""
     try:
         sessions = TokenManager.debug_all_active_sessions()
         
@@ -360,7 +361,6 @@ def debug_active_sessions():
 
 @auth_bp.route('/admin/clean-user-session/<int:user_id>', methods=['POST'])
 def admin_clean_user_session(user_id):
-    """Limpia sesión de un usuario específico (para administración)"""
     try:
         user = Usuario.query.get(user_id)
         if not user:
@@ -380,12 +380,11 @@ def admin_clean_user_session(user_id):
 
 @auth_bp.route('/nuclear-reset-sessions', methods=['POST'])
 def nuclear_reset_sessions():
-    """Limpia TODAS las sesiones activas - SOLO DESARROLLO"""
     try:
         count_deleted = TokenManager.nuclear_reset_sessions()
         
         return jsonify({
-            'msg': f'💥 RESET NUCLEAR: {count_deleted} sesiones eliminadas',
+            'msg': f' RESET NUCLEAR: {count_deleted} sesiones eliminadas',
             'sessions_deleted': count_deleted
         }), 200
         

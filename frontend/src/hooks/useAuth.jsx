@@ -1,10 +1,8 @@
 import { useState, useEffect, useContext, createContext } from 'react';
 import { authService } from '../services/api/authService';
 
-// Crear el contexto
 const AuthContext = createContext();
 
-// Hook personalizado
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -14,7 +12,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Provider
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
@@ -26,28 +23,34 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      console.log('🔍 Verificando autenticación...');
+      console.log('Verificando autenticación...');
       const data = await authService.checkAuth();
       
-      setIsAuthenticated(true);
+      if (data.authenticated) {
+        setIsAuthenticated(true);
+        
+        setUser({ 
+          usuario_id: data.user_id,
+          email: data.email,
+          rol_id: data.rol_id
+        });
+        
+        console.log('Usuario autenticado:', {
+          usuario_id: data.user_id,
+          email: data.email,
+          rol_id: data.rol_id
+        });
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        localStorage.removeItem('token');
+      }
       
-      
-      const userFromStorage = JSON.parse(localStorage.getItem('user') || 'null');
-      
-      setUser({ 
-        usuario_id: data.user_id,
-        email: userFromStorage?.email,
-        rol_id: userFromStorage?.rol_id
-      });
-      
-      console.log('Usuario autenticado:', data.user_id);
     } catch (error) {
-      console.log(' Usuario no autenticado');
+      console.log('Usuario no autenticado');
       setIsAuthenticated(false);
       setUser(null);
-      // Limpiar localStorage
       localStorage.removeItem('token');
-      localStorage.removeItem('user');
     } finally {
       setLoading(false);
     }
@@ -73,19 +76,29 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authService.login({ email, password });
       
-      setIsAuthenticated(true);
-      setUser({ 
-        email, 
-        rol_id: result.rol_id,
-        usuario_id: result.usuario_id
-      });
+      if (result && result.usuario_id) {
+        setIsAuthenticated(true);
+        
+        setUser({ 
+          email: result.email,
+          rol_id: result.rol_id,
+          usuario_id: result.usuario_id
+        });
 
-      return { 
-        success: true, 
-        token: result.access_token,
-        rol_id: result.rol_id,  
-        email: email 
+        return { 
+          success: true, 
+          token: result.access_token,
+          rol_id: result.rol_id,  
+          usuario_id: result.usuario_id,
+          email: result.email 
+        };
+      }
+      
+      return {
+        success: false,
+        message: 'Error en la respuesta del servidor',
       };
+      
     } catch (error) {
       return {
         success: false,
@@ -102,6 +115,21 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const getCurrentUser = () => {
+    return user;
+  };
+
+  const refreshUserInfo = async () => {
+    try {
+      const data = await authService.getUserInfo();
+      setUser(data);
+      return data;
+    } catch (error) {
+      console.error('Error refrescando información del usuario:', error);
+      return null;
+    }
+  };
+
   const value = {
     register,
     login,
@@ -109,7 +137,9 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     user,
     loading,
-    checkAuth
+    checkAuth,
+    getCurrentUser,
+    refreshUserInfo
   };
 
   return (
