@@ -107,10 +107,10 @@ def login():
         access_token = create_access_token(
             identity=f"user_{user.usuario_id}",
             additional_claims=additional_claims,  
-            expires_delta=timedelta(hours=24)
+            expires_delta=timedelta(minutes=5)# Esta con poco tiempo para hacer pruebas sino expires_delta=timedelta(hours=24) 
         )
 
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)# Esta con poco tiempo para hacer pruebas sinoexpires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         TokenManager.add_active_session(user.usuario_id, jti, expires_at)
 
         response = jsonify({
@@ -125,7 +125,7 @@ def login():
         response.set_cookie(
             'access_token',
             access_token,
-            max_age=60*60*24,
+            max_age=60*5, # Esta con poco tiempo para hacer pruebas sino max_age=60*60*24,
             secure=False,
             httponly=True, 
             samesite='Lax'
